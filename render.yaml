@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: microvern-x402-testnet
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: false
+    envVars:
+      - key: AVM_ADDRESS
+        sync: false

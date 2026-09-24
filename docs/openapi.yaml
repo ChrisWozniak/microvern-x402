@@ -1,0 +1,163 @@
+openapi: 3.1.0
+info:
+  title: MicroVern API
+  version: 2026-09-mvp
+  description: Deterministic, pre-signing analysis for unsigned Algorand transaction groups.
+servers:
+  - url: http://localhost:4021
+paths:
+  /healthz:
+    get:
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process is running.
+  /readyz:
+    get:
+      summary: Payment readiness probe
+      responses:
+        '200':
+          description: The configured facilitator supports the Testnet exact scheme.
+        '503':
+          $ref: '#/components/responses/Error'
+  /v1/capabilities:
+    get:
+      summary: Discover supported inputs and payment configuration
+      responses:
+        '200':
+          description: Service capabilities.
+  /v1/validate-transaction:
+    post:
+      summary: Free bounded structural preflight
+      description: Validates request shape and base64 bounds. It does not return an analysis report.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionRequest'
+      responses:
+        '200':
+          description: Request shape is valid.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid]
+                properties:
+                  valid:
+                    const: true
+        '400':
+          $ref: '#/components/responses/Error'
+        '413':
+          $ref: '#/components/responses/Error'
+  /v1/inspect-transaction:
+    post:
+      summary: Analyze an unsigned Algorand transaction group
+      description: Requires x402 v2 exact Testnet-USDC payment. Send an Idempotency-Key to replay a completed report without another payment attempt for 10 minutes on the same service instance.
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{8,128}$'
+          description: Generate one key per logical inspection request and reuse it only for a retry of that request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InspectionRequest'
+      responses:
+        '200':
+          description: Analysis report, or an idempotent replay of a completed paid report.
+          headers:
+            X-Request-Id:
+              schema: { type: string }
+            X-Idempotent-Replay:
+              schema: { type: string, enum: ['true'] }
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InspectionReport'
+        '400':
+          $ref: '#/components/responses/Error'
+        '402':
+          description: x402 payment required. Requirements are encoded in the PAYMENT-REQUIRED header.
+        '413':
+          $ref: '#/components/responses/Error'
+        '429':
+          description: Too many unpaid inspection requests.
+          headers:
+            Retry-After:
+              schema: { type: integer }
+components:
+  responses:
+    Error:
+      description: Client-visible validation or readiness error.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error: { type: string }
+  schemas:
+    InspectionRequest:
+      type: object
+      required: [network, unsignedTransactionGroup]
+      properties:
+        network:
+          type: string
+          enum: [algorand-testnet, algorand-mainnet]
+        unsignedTransactionGroup:
+          type: string
+          description: Base64 of one to sixteen concatenated algosdk.encodeUnsignedTransaction values. Decoded payload is limited to 65536 bytes.
+        policy:
+          type: object
+          properties:
+            maxAlgoSend: { type: number, minimum: 0 }
+            maxUsdcSend: { type: number, minimum: 0 }
+            allowRekey: { type: boolean }
+            allowCloseOut: { type: boolean }
+            allowUnknownApps: { type: boolean }
+            allowedApplicationIds:
+              type: array
+              items: { type: integer, minimum: 0 }
+    InspectionReport:
+      type: object
+      required: [verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion, disclaimer]
+      properties:
+        verdict: { type: string, enum: [allow, review, block] }
+        riskScore: { type: integer, minimum: 0, maximum: 100 }
+        summary: { type: string }
+        actions:
+          type: array
+          items:
+            type: object
+            required: [index, type, description, consequences]
+            properties:
+              index: { type: integer, minimum: 0 }
+              type: { type: string }
+              description: { type: string }
+              consequences:
+                type: array
+                items: { type: string }
+        findings:
+          type: array
+          items:
+            type: object
+            required: [code, severity, transactionIndex, message]
+            properties:
+              code: { type: string }
+              severity: { type: string, enum: [low, medium, high, critical] }
+              transactionIndex: { type: integer, minimum: 0 }
+              message: { type: string }
+        policyEvaluation:
+          type: object
+          additionalProperties:
+            type: string
+            enum: [passed, failed, not-configured]
+        rulesetVersion: { type: string }
+        disclaimer: { type: string }

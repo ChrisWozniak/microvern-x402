@@ -1,0 +1,46 @@
+export const RULESET_VERSION = "2026-09-mvp";
+
+export type Network = "algorand-mainnet" | "algorand-testnet";
+export type Verdict = "allow" | "review" | "block";
+export type Severity = "low" | "medium" | "high" | "critical";
+
+export interface InspectionPolicy {
+  maxAlgoSend?: number;
+  maxUsdcSend?: number;
+  allowRekey?: boolean;
+  allowCloseOut?: boolean;
+  allowUnknownApps?: boolean;
+  allowedApplicationIds?: number[];
+}
+
+export interface InspectionRequest {
+  network: Network;
+  /** Base64 of concatenated unsigned Algorand transactions encoded with algosdk.encodeUnsignedTransaction. */
+  unsignedTransactionGroup: string;
+  policy?: InspectionPolicy;
+}
+
+export interface Finding {
+  code: string;
+  severity: Severity;
+  transactionIndex: number;
+  message: string;
+}
+
+export interface Action {
+  index: number;
+  type: string;
+  description: string;
+  consequences: string[];
+}
+
+export interface InspectionReport {
+  verdict: Verdict;
+  riskScore: number;
+  summary: string;
+  actions: Action[];
+  findings: Finding[];
+  policyEvaluation: Record<string, "passed" | "failed" | "not-configured">;
+  rulesetVersion: typeof RULESET_VERSION;
+  disclaimer: string;
+}
