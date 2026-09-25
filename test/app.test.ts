@@ -216,6 +216,13 @@ describe("MicroVern Stage 1 API", () => {
     const report = await response.json();
     expect(report.verdict).toBe("allow");
     expect(report.actions[0].description).toContain("1.5 ALGO");
+    expect(report.reviewSummary).toEqual({
+      transactionCount: 1,
+      totalAlgoSent: "1.5",
+      totalUsdcSent: "0",
+      totalFeeAlgo: "0.001",
+      recipients: [receiver.addr.toString()],
+    });
     expect(report.requestHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.reportChecksum).toMatch(/^[a-f0-9]{64}$/);
   });

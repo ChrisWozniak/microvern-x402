@@ -129,11 +129,22 @@ components:
               items: { type: integer, minimum: 0 }
     InspectionReport:
       type: object
-      required: [verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion, disclaimer, requestHash, reportChecksum]
+      required: [verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion, disclaimer, requestHash, reportChecksum]
       properties:
         verdict: { type: string, enum: [allow, review, block] }
         riskScore: { type: integer, minimum: 0, maximum: 100 }
         summary: { type: string }
+        reviewSummary:
+          type: object
+          required: [transactionCount, totalAlgoSent, totalUsdcSent, totalFeeAlgo, recipients]
+          properties:
+            transactionCount: { type: integer, minimum: 1 }
+            totalAlgoSent: { type: string, description: Excludes any ALGO close-out remainder, which is separately flagged. }
+            totalUsdcSent: { type: string }
+            totalFeeAlgo: { type: string }
+            recipients:
+              type: array
+              items: { type: string }
         actions:
           type: array
           items:

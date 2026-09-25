@@ -34,10 +34,21 @@ export interface Action {
   consequences: string[];
 }
 
+/** Deterministic totals suitable for a risk-first human review surface. */
+export interface ReviewSummary {
+  transactionCount: number;
+  /** Excludes an ALGO close-out remainder, which is separately flagged as critical. */
+  totalAlgoSent: string;
+  totalUsdcSent: string;
+  totalFeeAlgo: string;
+  recipients: string[];
+}
+
 export interface InspectionAnalysis {
   verdict: Verdict;
   riskScore: number;
   summary: string;
+  reviewSummary: ReviewSummary;
   actions: Action[];
   findings: Finding[];
   policyEvaluation: Record<string, "passed" | "failed" | "not-configured">;

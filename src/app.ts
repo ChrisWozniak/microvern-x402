@@ -62,11 +62,22 @@ const INSPECTION_REQUEST_SCHEMA = {
 
 const INSPECTION_RESPONSE_SCHEMA = {
   type: "object",
-  required: ["verdict", "riskScore", "summary", "actions", "findings", "policyEvaluation", "rulesetVersion", "disclaimer", "requestHash", "reportChecksum"],
+  required: ["verdict", "riskScore", "summary", "reviewSummary", "actions", "findings", "policyEvaluation", "rulesetVersion", "disclaimer", "requestHash", "reportChecksum"],
   properties: {
     verdict: { type: "string", enum: ["allow", "review", "block"] },
     riskScore: { type: "number", minimum: 0 },
     summary: { type: "string" },
+    reviewSummary: {
+      type: "object",
+      required: ["transactionCount", "totalAlgoSent", "totalUsdcSent", "totalFeeAlgo", "recipients"],
+      properties: {
+        transactionCount: { type: "integer", minimum: 1 },
+        totalAlgoSent: { type: "string" },
+        totalUsdcSent: { type: "string" },
+        totalFeeAlgo: { type: "string" },
+        recipients: { type: "array", items: { type: "string" } },
+      },
+    },
     actions: { type: "array" },
     findings: { type: "array" },
     policyEvaluation: { type: "object" },
@@ -91,6 +102,7 @@ function inspectionDiscoveryExtension(network: PaymentConfig["network"]) {
         verdict: "allow",
         riskScore: 0,
         summary: "1 action analyzed; no configured policy violation found.",
+        reviewSummary: { transactionCount: 1, totalAlgoSent: "0", totalUsdcSent: "0", totalFeeAlgo: "0.001", recipients: [] },
         actions: [{ index: 0, type: "algo-transfer", description: "Sends 0 ALGO.", consequences: [] }],
         findings: [],
         policyEvaluation: { maxAlgoSend: "passed", allowRekey: "passed" },

@@ -2,7 +2,7 @@ import algosdk from "algosdk";
 import { decodeMulti } from "algorand-msgpack";
 import { bindInspectionReport } from "./binding.js";
 import { ValidationError } from "./errors.js";
-import { RULESET_VERSION, type Action, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type Verdict } from "./types.js";
+import { RULESET_VERSION, type Action, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type ReviewSummary, type Verdict } from "./types.js";
 
 const MAINNET_USDC_ASSET_ID = 31_566_704;
 const TESTNET_USDC_ASSET_ID = 10_458_941;
@@ -90,8 +90,11 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
   const policyEvaluation: InspectionReport["policyEvaluation"] = {};
   let algoSent = 0n;
   let usdcSent = 0n;
+  let totalFee = 0n;
+  const recipients = new Set<string>();
 
   for (const [transactionIndex, txn] of transactions.entries()) {
+    totalFee += txn.fee;
     const txnType = txn.type;
     const rekeyTo = addressOrNone(txn.rekeyTo);
     const closeRemainderTo = addressOrNone(txn.payment?.closeRemainderTo);
@@ -101,6 +104,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
       const payment = txn.payment;
       if (payment === undefined) throw new ValidationError("Decoded payment transaction is missing payment fields.");
       algoSent += payment.amount;
+      recipients.add(payment.receiver.toString());
       actions.push({ index: transactionIndex, type: "payment", description: `Send ${formatAmount(payment.amount)} ALGO to ${payment.receiver.toString()}.`, consequences: [`Your ALGO balance decreases by ${formatAmount(payment.amount)} ALGO plus the transaction fee.`] });
     } else if (txnType === "axfer") {
       const transfer = txn.assetTransfer;
@@ -113,11 +117,14 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
       if (isOptIn) {
         actions.push({ index: transactionIndex, type: "asset-opt-in", description: `Opt into ${assetName}.`, consequences: ["Your account will begin holding this asset and its minimum balance requirement."] });
       } else if (transfer.closeRemainderTo !== undefined) {
+        recipients.add(transfer.receiver.toString());
         actions.push({ index: transactionIndex, type: "asset-opt-out", description: `Transfer ${formatAmount(transfer.amount)} ${assetName} to ${transfer.receiver.toString()} and close the remaining asset balance to ${transfer.closeRemainderTo.toString()}.`, consequences: [`Your ${assetName} holding will be removed after its remaining balance is transferred.`] });
       } else if (transfer.assetSender !== undefined) {
+        recipients.add(transfer.receiver.toString());
         actions.push({ index: transactionIndex, type: "asset-clawback", description: `Transfer ${formatAmount(transfer.amount)} ${assetName} from ${transfer.assetSender.toString()} to ${transfer.receiver.toString()} using clawback authority.`, consequences: ["This transaction moves assets from another account rather than the transaction sender's holding."] });
         pushFinding(findings, { code: "ASSET_CLAWBACK", severity: "high", transactionIndex, message: `Asset ${assetId} is using clawback authority to transfer from ${transfer.assetSender.toString()}.` });
       } else {
+        recipients.add(transfer.receiver.toString());
         actions.push({ index: transactionIndex, type: "asset-transfer", description: `Send ${formatAmount(transfer.amount)} ${assetName} to ${transfer.receiver.toString()}.`, consequences: [`Your ${assetName} balance decreases by ${formatAmount(transfer.amount)}.`] });
       }
     } else if (txnType === "appl") {
@@ -174,6 +181,13 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
     ? "No configured rule triggered; independently verify this transaction before signing."
     : `MicroVern found ${findings.length} condition${findings.length === 1 ? "" : "s"} that ${verdict === "block" ? "block" : "require"} review.`;
 
-  const analysis: InspectionAnalysis = { verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
+  const reviewSummary: ReviewSummary = {
+    transactionCount: transactions.length,
+    totalAlgoSent: formatAmount(algoSent),
+    totalUsdcSent: formatAmount(usdcSent),
+    totalFeeAlgo: formatAmount(totalFee),
+    recipients: [...recipients].sort(),
+  };
+  const analysis: InspectionAnalysis = { verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
   return bindInspectionReport({ network, unsignedTransactionGroup: encoded, policy }, analysis);
 }
