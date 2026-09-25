@@ -1,7 +1,8 @@
 import algosdk from "algosdk";
 import { decodeMulti } from "algorand-msgpack";
+import { bindInspectionReport } from "./binding.js";
 import { ValidationError } from "./errors.js";
-import { RULESET_VERSION, type Action, type Finding, type InspectionPolicy, type InspectionReport, type Verdict } from "./types.js";
+import { RULESET_VERSION, type Action, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type Verdict } from "./types.js";
 
 const MAINNET_USDC_ASSET_ID = 31_566_704;
 const TESTNET_USDC_ASSET_ID = 10_458_941;
@@ -173,5 +174,6 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
     ? "No configured rule triggered; independently verify this transaction before signing."
     : `MicroVern found ${findings.length} condition${findings.length === 1 ? "" : "s"} that ${verdict === "block" ? "block" : "require"} review.`;
 
-  return { verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
+  const analysis: InspectionAnalysis = { verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
+  return bindInspectionReport({ network, unsignedTransactionGroup: encoded, policy }, analysis);
 }

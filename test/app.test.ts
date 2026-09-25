@@ -13,6 +13,7 @@ import {
   requireTestnetPaymentConfig,
 } from "../src/config.js";
 import { InMemoryIdempotencyStore, createIdempotencyStore } from "../src/idempotency.js";
+import { hashInspectionRequest } from "../src/binding.js";
 import type { FacilitatorClient } from "@x402/core/server";
 
 const sender = algosdk.generateAccount();
@@ -98,13 +99,14 @@ describe("MicroVern Stage 1 API", () => {
   it("atomically reserves, completes, and replays idempotency keys in memory", async () => {
     const store = new InMemoryIdempotencyStore();
     await store.initialize();
-    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({ state: "acquired" });
-    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({ state: "in-progress" });
+    expect(await store.acquire("durable-fixture-key", "a".repeat(64), 60_000)).toEqual({ state: "acquired" });
+    expect(await store.acquire("durable-fixture-key", "a".repeat(64), 60_000)).toEqual({ state: "in-progress" });
     await store.complete("durable-fixture-key", { status: 200, body: { verdict: "allow" }, paymentResponse: "receipt" }, 60_000);
-    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({
+    expect(await store.acquire("durable-fixture-key", "a".repeat(64), 60_000)).toEqual({
       state: "completed",
       response: { status: 200, body: { verdict: "allow" }, paymentResponse: "receipt" },
     });
+    expect(await store.acquire("durable-fixture-key", "b".repeat(64), 60_000)).toEqual({ state: "conflict" });
   });
 
   it("requires a receiver address before starting the payment-protected API", () => {
@@ -162,6 +164,12 @@ describe("MicroVern Stage 1 API", () => {
         bodyType: "json",
         body: expect.objectContaining({ network: "algorand-testnet" }),
       },
+      output: {
+        example: expect.objectContaining({
+          requestHash: expect.stringMatching(/^[a-f0-9]{64}$/),
+          reportChecksum: expect.stringMatching(/^[a-f0-9]{64}$/),
+        }),
+      },
     });
   });
 
@@ -194,6 +202,8 @@ describe("MicroVern Stage 1 API", () => {
     const report = await response.json();
     expect(report.verdict).toBe("allow");
     expect(report.actions[0].description).toContain("1.5 ALGO");
+    expect(report.requestHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(report.reportChecksum).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it("offers a free bounded structural preflight without returning a report", async () => {
@@ -247,6 +257,26 @@ describe("MicroVern Stage 1 API", () => {
     expect(second.status).toBe(200);
     expect(second.headers.get("x-idempotent-replay")).toBe("true");
     expect(await second.json()).toEqual(await first.json());
+  });
+
+  it("rejects an idempotency key reused for different unsigned transaction data", async () => {
+    const headers = { "idempotency-key": "fixture-bound-key" };
+    const first = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams });
+    const changed = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 2, suggestedParams });
+    expect((await app.request(requestFor(first, undefined, headers))).status).toBe(200);
+    const response = await app.request(requestFor(changed, undefined, headers));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: "This Idempotency-Key is already bound to a different inspection request." });
+  });
+
+  it("binds request hashes to normalized policy semantics", () => {
+    const transaction = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams });
+    const group = Buffer.from(algosdk.encodeUnsignedTransaction(transaction)).toString("base64");
+    const first = hashInspectionRequest({ network: "algorand-testnet", unsignedTransactionGroup: group, policy: { allowedApplicationIds: [9, 3, 9] } });
+    const samePolicy = hashInspectionRequest({ network: "algorand-testnet", unsignedTransactionGroup: group, policy: { allowedApplicationIds: [3, 9] } });
+    const changedPolicy = hashInspectionRequest({ network: "algorand-testnet", unsignedTransactionGroup: group, policy: { allowRekey: true, allowedApplicationIds: [3, 9] } });
+    expect(first).toBe(samePolicy);
+    expect(first).not.toBe(changedPolicy);
   });
 
   it("rejects an invalid idempotency key before analysis", async () => {

@@ -54,7 +54,7 @@ paths:
   /v1/inspect-transaction:
     post:
       summary: Analyze an unsigned Algorand transaction group
-      description: Requires x402 v2 exact Testnet-USDC payment. Send an Idempotency-Key to replay a completed report without another payment attempt for 10 minutes on the same service instance.
+      description: Requires x402 v2 exact USDC payment on the configured Algorand network. Send an Idempotency-Key to replay a completed report without another payment attempt for 10 minutes. A key is bound to the canonical unsigned transaction request and policy; reuse with different data returns 409 before payment handling.
       parameters:
         - name: Idempotency-Key
           in: header
@@ -92,6 +92,8 @@ paths:
           headers:
             Retry-After:
               schema: { type: integer }
+        '409':
+          description: An inspection with this key is in progress, or the key is bound to a different request.
 components:
   responses:
     Error:
@@ -127,7 +129,7 @@ components:
               items: { type: integer, minimum: 0 }
     InspectionReport:
       type: object
-      required: [verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion, disclaimer]
+      required: [verdict, riskScore, summary, actions, findings, policyEvaluation, rulesetVersion, disclaimer, requestHash, reportChecksum]
       properties:
         verdict: { type: string, enum: [allow, review, block] }
         riskScore: { type: integer, minimum: 0, maximum: 100 }
@@ -161,3 +163,11 @@ components:
             enum: [passed, failed, not-configured]
         rulesetVersion: { type: string }
         disclaimer: { type: string }
+        requestHash:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: Lowercase SHA-256 of the canonical unsigned transaction request and policy.
+        reportChecksum:
+          type: string
+          pattern: '^[a-f0-9]{64}$'
+          description: Lowercase SHA-256 binding the report content to requestHash.

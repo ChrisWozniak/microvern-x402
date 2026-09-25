@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.2
+**Version:** 1.3
 **Date:** 2026-09-25
 **Status:** Living product plan
 
@@ -98,12 +98,13 @@ MicroVern serves:
 - MainNet mode requires an explicit confirmation environment variable and a
   durable database connection before the server will start.
 
-The next reliability enhancement will bind an idempotency key to a
-privacy-preserving canonical request hash. Reusing a key for the same request
-will replay its completed report without another charge; using it for a
-different request will fail before payment. The hash, report, and payment
-receipt may be retained for the recovery window, but never the raw unsigned
-transaction payload.
+Paid-request idempotency is bound to a privacy-preserving canonical request
+hash. Reusing a key for the same request replays its completed report without
+another charge; using it for different data fails before payment. Each report
+also returns the request hash and a report checksum, so an agent can retain
+evidence of the exact reviewed input. The hash, report, and payment receipt may
+be retained for the recovery window, but never the raw unsigned transaction
+payload.
 
 ## Current milestone and evidence
 

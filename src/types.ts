@@ -34,7 +34,7 @@ export interface Action {
   consequences: string[];
 }
 
-export interface InspectionReport {
+export interface InspectionAnalysis {
   verdict: Verdict;
   riskScore: number;
   summary: string;
@@ -43,4 +43,11 @@ export interface InspectionReport {
   policyEvaluation: Record<string, "passed" | "failed" | "not-configured">;
   rulesetVersion: typeof RULESET_VERSION;
   disclaimer: string;
+}
+
+export interface InspectionReport extends InspectionAnalysis {
+  /** Lowercase SHA-256 of the canonical unsigned transaction request and policy. */
+  requestHash: string;
+  /** Lowercase SHA-256 binding the report content to requestHash. */
+  reportChecksum: string;
 }

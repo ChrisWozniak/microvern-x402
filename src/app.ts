@@ -9,6 +9,7 @@ import {
 import { HTTPFacilitatorClient, type FacilitatorClient } from "@x402/core/server";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { inspectUnsignedTransaction } from "./analyze.js";
+import { hashInspectionRequest } from "./binding.js";
 import { loadPaymentConfig, type PaymentConfig } from "./config.js";
 import { ValidationError } from "./errors.js";
 import { InMemoryIdempotencyStore, type IdempotencyStore } from "./idempotency.js";
@@ -59,7 +60,7 @@ const INSPECTION_REQUEST_SCHEMA = {
 
 const INSPECTION_RESPONSE_SCHEMA = {
   type: "object",
-  required: ["verdict", "riskScore", "summary", "actions", "findings", "policyEvaluation", "rulesetVersion", "disclaimer"],
+  required: ["verdict", "riskScore", "summary", "actions", "findings", "policyEvaluation", "rulesetVersion", "disclaimer", "requestHash", "reportChecksum"],
   properties: {
     verdict: { type: "string", enum: ["allow", "review", "block"] },
     riskScore: { type: "number", minimum: 0 },
@@ -69,6 +70,8 @@ const INSPECTION_RESPONSE_SCHEMA = {
     policyEvaluation: { type: "object" },
     rulesetVersion: { type: "string" },
     disclaimer: { type: "string" },
+    requestHash: { type: "string", pattern: "^[a-f0-9]{64}$" },
+    reportChecksum: { type: "string", pattern: "^[a-f0-9]{64}$" },
   },
 } as const;
 
@@ -91,6 +94,8 @@ function inspectionDiscoveryExtension(network: PaymentConfig["network"]) {
         policyEvaluation: { maxAlgoSend: "passed", allowRekey: "passed" },
         rulesetVersion: RULESET_VERSION,
         disclaimer: "Deterministic, best-effort decision support; verify all transaction details before signing.",
+        requestHash: "0000000000000000000000000000000000000000000000000000000000000000",
+        reportChecksum: "1111111111111111111111111111111111111111111111111111111111111111",
       },
       schema: INSPECTION_RESPONSE_SCHEMA,
     },
@@ -173,7 +178,15 @@ function addInspectionGuards(
 
     if (!allowUnpaidIdempotency && !hasPaymentProof(c)) return next();
 
-    const acquisition = await idempotencyStore.acquire(key, IDEMPOTENCY_TTL_MS);
+    let requestHash: string;
+    try {
+      requestHash = hashInspectionRequest(parseInspectionRequest(JSON.parse(await c.req.raw.clone().text())));
+    } catch (error) {
+      if (error instanceof ValidationError) return c.json({ error: error.message }, 400);
+      return c.json({ error: "Request body must be valid JSON." }, 400);
+    }
+
+    const acquisition = await idempotencyStore.acquire(key, requestHash, IDEMPOTENCY_TTL_MS);
     if (acquisition.state === "completed") {
       c.header("X-Idempotent-Replay", "true");
       if (acquisition.response.paymentResponse !== null) c.header("Payment-Response", acquisition.response.paymentResponse);
@@ -182,6 +195,9 @@ function addInspectionGuards(
     if (acquisition.state === "in-progress") {
       c.header("Retry-After", "2");
       return c.json({ error: "An inspection with this Idempotency-Key is already being processed." }, 409);
+    }
+    if (acquisition.state === "conflict") {
+      return c.json({ error: "This Idempotency-Key is already bound to a different inspection request." }, 409);
     }
 
     await next();

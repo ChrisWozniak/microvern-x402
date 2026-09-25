@@ -9,18 +9,20 @@ export interface CompletedIdempotencyResponse {
 export type IdempotencyAcquisition =
   | { readonly state: "acquired" }
   | { readonly state: "completed"; readonly response: CompletedIdempotencyResponse }
-  | { readonly state: "in-progress" };
+  | { readonly state: "in-progress" }
+  | { readonly state: "conflict" };
 
 export interface IdempotencyStore {
   readonly durable: boolean;
   initialize(): Promise<void>;
-  acquire(key: string, ttlMs: number): Promise<IdempotencyAcquisition>;
+  acquire(key: string, requestHash: string, ttlMs: number): Promise<IdempotencyAcquisition>;
   complete(key: string, response: CompletedIdempotencyResponse, ttlMs: number): Promise<void>;
   release(key: string): Promise<void>;
 }
 
 interface InMemoryEntry {
   readonly state: "processing" | "completed";
+  readonly requestHash: string;
   readonly expiresAt: number;
   readonly response?: CompletedIdempotencyResponse;
 }
@@ -31,25 +33,26 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
 
   async initialize(): Promise<void> {}
 
-  async acquire(key: string, ttlMs: number): Promise<IdempotencyAcquisition> {
+  async acquire(key: string, requestHash: string, ttlMs: number): Promise<IdempotencyAcquisition> {
     const now = Date.now();
     const entry = this.entries.get(key);
     if (entry !== undefined && entry.expiresAt <= now) this.entries.delete(key);
 
     const activeEntry = this.entries.get(key);
+    if (activeEntry !== undefined && activeEntry.requestHash !== requestHash) return { state: "conflict" };
     if (activeEntry?.state === "completed" && activeEntry.response !== undefined) {
       return { state: "completed", response: activeEntry.response };
     }
     if (activeEntry?.state === "processing") return { state: "in-progress" };
 
-    this.entries.set(key, { state: "processing", expiresAt: now + ttlMs });
+    this.entries.set(key, { state: "processing", requestHash, expiresAt: now + ttlMs });
     return { state: "acquired" };
   }
 
   async complete(key: string, response: CompletedIdempotencyResponse, ttlMs: number): Promise<void> {
     const entry = this.entries.get(key);
     if (entry?.state !== "processing") return;
-    this.entries.set(key, { state: "completed", response, expiresAt: Date.now() + ttlMs });
+    this.entries.set(key, { state: "completed", requestHash: entry.requestHash, response, expiresAt: Date.now() + ttlMs });
   }
 
   async release(key: string): Promise<void> {
@@ -60,6 +63,7 @@ export class InMemoryIdempotencyStore implements IdempotencyStore {
 
 interface IdempotencyRow {
   state: "processing" | "completed";
+  request_hash: string | null;
   response_status: number | null;
   response_body: unknown;
   payment_response: string | null;
@@ -88,6 +92,7 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
       CREATE TABLE IF NOT EXISTS microvern_idempotency (
         idempotency_key VARCHAR(128) PRIMARY KEY,
         state VARCHAR(16) NOT NULL CHECK (state IN ('processing', 'completed')),
+        request_hash VARCHAR(64),
         response_status SMALLINT,
         response_body JSONB,
         payment_response TEXT,
@@ -95,28 +100,31 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       )
     `);
+    await this.pool.query("ALTER TABLE microvern_idempotency ADD COLUMN IF NOT EXISTS request_hash VARCHAR(64)");
     await this.pool.query("CREATE INDEX IF NOT EXISTS microvern_idempotency_expires_at_idx ON microvern_idempotency (expires_at)");
   }
 
-  async acquire(key: string, ttlMs: number): Promise<IdempotencyAcquisition> {
+  async acquire(key: string, requestHash: string, ttlMs: number): Promise<IdempotencyAcquisition> {
     const expiresAt = new Date(Date.now() + ttlMs);
     const claim = await this.pool.query<{ state: "processing" }>(`
-      INSERT INTO microvern_idempotency (idempotency_key, state, expires_at)
-      VALUES ($1, 'processing', $2)
+      INSERT INTO microvern_idempotency (idempotency_key, state, request_hash, expires_at)
+      VALUES ($1, 'processing', $2, $3)
       ON CONFLICT (idempotency_key) DO UPDATE
       SET state = 'processing', response_status = NULL, response_body = NULL,
-          payment_response = NULL, expires_at = EXCLUDED.expires_at
+          payment_response = NULL, request_hash = EXCLUDED.request_hash,
+          expires_at = EXCLUDED.expires_at
       WHERE microvern_idempotency.expires_at <= NOW()
       RETURNING state
-    `, [key, expiresAt]);
+    `, [key, requestHash, expiresAt]);
     if (claim.rowCount === 1) return { state: "acquired" };
 
     const existing = await this.pool.query<IdempotencyRow>(`
-      SELECT state, response_status, response_body, payment_response
+      SELECT state, request_hash, response_status, response_body, payment_response
       FROM microvern_idempotency
       WHERE idempotency_key = $1 AND expires_at > NOW()
     `, [key]);
     const row = existing.rows[0];
+    if (row !== undefined && row.request_hash !== requestHash) return { state: "conflict" };
     if (
       row?.state === "completed"
       && row.response_status === 200
