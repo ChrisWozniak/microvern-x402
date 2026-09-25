@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="MicroVern is an x402 API that explains unsigned Algorand transactions before signing.">
+    <title>MicroVern — inspect before you sign</title>
+    <link rel="icon" href="./assets/microvern-icon.svg" type="image/svg+xml">
+    <style>
+      :root { color-scheme: dark; --ink:#e5edf5; --muted:#a9bacb; --line:#26445e; --aqua:#5eead4; --blue:#38bdf8; --night:#061524; --panel:#0b2136; }
+      * { box-sizing:border-box; } body { margin:0; background:radial-gradient(circle at 15% -5%,#123a58 0,transparent 36rem),var(--night); color:var(--ink); font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      main { max-width:1024px; margin:auto; padding:28px 24px 72px; } nav { display:flex; align-items:center; gap:12px; font-weight:700; } nav img { width:40px; height:40px; } .tag { margin-left:auto; color:var(--aqua); border:1px solid #277a78; border-radius:999px; padding:3px 11px; font-size:.78rem; }
+      .hero { padding:92px 0 72px; max-width:780px; } h1 { font-size:clamp(2.7rem,7vw,5.4rem); line-height:1; letter-spacing:-.065em; margin:0 0 24px; } h1 em { color:var(--aqua); font-style:normal; } .lead { color:var(--muted); font-size:1.22rem; max-width:650px; }
+      .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; } a.button { display:inline-block; padding:11px 16px; border-radius:8px; background:var(--aqua); color:#062023; text-decoration:none; font-weight:750; } a.button.secondary { color:var(--ink); background:transparent; border:1px solid var(--line); }
+      .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; } .card { border:1px solid var(--line); background:linear-gradient(145deg,#0c263e,#081b2e); border-radius:14px; padding:24px; } .card h2 { font-size:1rem; margin:0 0 8px; color:var(--aqua); } .card p { color:var(--muted); margin:0; }
+      section { margin-top:72px; } h3 { font-size:1.7rem; margin-bottom:10px; } code { color:#c8f7ee; } pre { overflow:auto; padding:20px; background:#04111e; border:1px solid #193852; border-radius:10px; color:#c8f7ee; } .proof { border-left:3px solid var(--blue); padding:4px 0 4px 18px; color:var(--muted); } footer { color:#7890a4; margin-top:72px; font-size:.9rem; } a { color:var(--aqua); } @media (max-width:700px) { .grid { grid-template-columns:1fr; } .tag { display:none; } .hero { padding-top:68px; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav><img src="./assets/microvern-icon.svg" alt=""><span>MicroVern</span><span class="tag">Algorand x402</span></nav>
+      <header class="hero">
+        <h1>Inspect <em>before</em><br>you sign.</h1>
+        <p class="lead">MicroVern is a paid API that explains unsigned Algorand transaction groups, highlights risky actions, and evaluates your policy before a wallet signs anything.</p>
+        <div class="actions"><a class="button" href="https://github.com/ChrisWozniak/microvern-x402">View source</a><a class="button secondary" href="#api">Explore the API</a></div>
+      </header>
+      <section class="grid" aria-label="MicroVern capabilities">
+        <article class="card"><h2>Readable actions</h2><p>Transfers, opt-ins, app calls, rekeys, close-outs, and asset administration become clear, structured findings.</p></article>
+        <article class="card"><h2>Policy-aware</h2><p>Set limits for ALGO and USDC movement, rekeys, close-outs, and known application IDs.</p></article>
+        <article class="card"><h2>HTTP-native payment</h2><p>The inspection endpoint uses x402 v2 with Algorand USDC. No API key, account custody, or wallet secret is required.</p></article>
+      </section>
+      <section id="api">
+        <h3>One focused endpoint</h3>
+        <pre>POST /v1/inspect-transaction
+Content-Type: application/json
+Idempotency-Key: &lt;8–128 URL-safe characters&gt;
+
+{
+  "network": "algorand-mainnet",
+  "unsignedTransactionGroup": "&lt;base64 unsigned Algorand transaction group&gt;",
+  "policy": { "maxAlgoSend": 10, "allowRekey": false }
+}</pre>
+        <p>The first request receives an x402 <code>402 Payment Required</code> response. A capable client settles the quoted USDC payment and retries to receive the deterministic report.</p>
+      </section>
+      <section>
+        <h3>Built for cautious review</h3>
+        <p class="proof">MicroVern does not custody funds, accept wallet secrets, submit customer transactions, or claim to guarantee safety. It is deterministic decision support; people should still verify transaction details before signing.</p>
+        <p>Testnet flow verified end-to-end: an unpaid request returned Testnet USDC requirements and a paid retry returned an inspection report. <a href="https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ">View the Testnet settlement</a>.</p>
+      </section>
+      <section>
+        <h3>MainNet readiness</h3>
+        <p>Before MainNet is enabled, MicroVern requires a dedicated receiver, durable shared PostgreSQL idempotency storage, an always-on deployment, public metadata, and a deliberately approved small payment check.</p>
+      </section>
+      <footer>MicroVern · Built for Algorand x402 transaction safety</footer>
+    </main>
+  </body>
+</html>

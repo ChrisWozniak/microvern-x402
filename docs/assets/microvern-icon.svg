@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">MicroVern</title>
+  <desc id="description">A shielded M representing safer Algorand transaction review.</desc>
+  <defs>
+    <linearGradient id="background" x1="22" y1="18" x2="231" y2="241" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#102A43"/>
+      <stop offset="1" stop-color="#061524"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="66" y1="64" x2="196" y2="190" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5EEAD4"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#background)"/>
+  <path d="M128 29 207 61v58c0 52-32 91-79 108-47-17-79-56-79-108V61l79-32Z" fill="#0B2136" stroke="#2DD4BF" stroke-width="6"/>
+  <path d="M76 151V94c0-6 7-9 11-5l41 39 41-39c4-4 11-1 11 5v57c0 8-10 10-14 4l-38-37-38 37c-4 6-14 4-14-4Z" fill="url(#accent)"/>
+  <circle cx="128" cy="180" r="8" fill="#F8FAFC"/>
+</svg>

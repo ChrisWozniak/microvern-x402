@@ -15,6 +15,19 @@ npm start
 
 For a public Testnet deployment on Render Free, use [the Render deployment guide](docs/render_testnet_deployment.md). The included `render.yaml` compiles the service and starts `dist/server.js`; it prompts for the receiver address rather than storing environment configuration in the repository. A separate, paid-MainNet Blueprint is prepared in [the MainNet Render deployment guide](docs/render_mainnet_deployment.md); it does not modify the Testnet service.
 
+## Public landing page and MainNet preflight
+
+The GitHub Pages-ready landing page and original MicroVern icon live in [`docs/index.html`](docs/index.html) and [`docs/assets/microvern-icon.svg`](docs/assets/microvern-icon.svg). After these files are pushed, enable GitHub Pages in the repository: **Settings** → **Pages** → **Deploy from a branch** → `main` → `/docs`. The expected icon URL is `https://chriswozniak.github.io/microvern-x402/assets/microvern-icon.svg`; confirm it loads publicly before entering it as `MICROVERN_ICON_URL` in the MainNet Blueprint.
+
+After the paid MainNet service is deployed, run the no-payment preflight:
+
+```powershell
+$env:MICROVERN_URL = "https://<mainnet-service>.onrender.com"
+npm run verify:mainnet-preflight
+```
+
+It calls only `/healthz`, `/readyz`, and an unsigned request without a payment header. It requires a `200` health check, a MainNet `exact` readiness response, and a `402` that advertises MainNet USDC ASA `31566704` plus the Bazaar challenge metadata. It cannot make a payment.
+
 Public routes:
 
 - `GET /healthz`

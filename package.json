@@ -8,7 +8,8 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "verify:mainnet-preflight": "npm run build && node dist/mainnet-preflight.js"
   },
   "engines": {
     "node": ">=22"
