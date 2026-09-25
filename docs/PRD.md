@@ -1,7 +1,7 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.1
-**Date:** 2026-09-24
+**Version:** 1.2
+**Date:** 2026-09-25
 **Status:** Living product plan
 
 ## Product summary
@@ -11,6 +11,17 @@ transaction group before a person, wallet, or agent signs it. It returns a
 deterministic, structured explanation of transfers, asset movement, fees,
 ordering, and selected risks. A client can validate a request for free, then
 pay only when it needs the full inspection report.
+
+**Product promise:** _Know what you sign. Clarity before commitment._
+
+### Name meaning
+
+**MicroVern** means "small protection." **Micro** represents a focused
+transaction check before signing. **Vern** is Norwegian for protection,
+defense, or safeguarding, with roots in Old Norse. The name expresses
+MicroVern's role as a protective layer between an unsigned Algorand transaction
+and a user's approval. It is decision support, not a guarantee that a
+transaction is safe. See the [Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
 The product is deliberately an inspection service. It does not custody funds,
 request private keys or mnemonics, sign transactions, broadcast transactions,

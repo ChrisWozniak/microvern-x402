@@ -1,8 +1,19 @@
 # MicroVern
 
+> **Know what you sign. Clarity before commitment.**
+
 MicroVern explains unsigned Algorand transactions before signing. It is a deterministic, best-effort decision-support API: it does not custody funds, accept wallet secrets, submit customer transactions, or guarantee safety.
 
 The current scope, MainNet release gates, and prioritized future iterations are in the [Product Requirements Document](docs/PRD.md).
+
+## Why the name MicroVern
+
+**MicroVern** means "small protection." **Micro** represents the focused check
+of a transaction before signing. **Vern** is Norwegian for protection, defense,
+or safeguarding, with roots in Old Norse. MicroVern is the protective layer
+between an unsigned Algorand transaction and a user's approval. This is a
+decision-support aid, not a guarantee that a transaction is safe. See the
+[Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
 ## Current milestone: Testnet x402-protected analysis, with MainNet preflight safeguards
 
