@@ -2,6 +2,8 @@
 
 MicroVern explains unsigned Algorand transactions before signing. It is a deterministic, best-effort decision-support API: it does not custody funds, accept wallet secrets, submit customer transactions, or guarantee safety.
 
+The current scope, MainNet release gates, and prioritized future iterations are in the [Product Requirements Document](docs/PRD.md).
+
 ## Current milestone: Testnet x402-protected analysis, with MainNet preflight safeguards
 
 The local API accepts a base64 encoding of one or more concatenated unsigned Algorand transactions, each encoded by `algosdk.encodeUnsignedTransaction`. Multi-transaction inputs must have one shared Algorand group ID. It explains transfers, asset opt-ins/out, close-outs, clawbacks, asset administration, app calls, rekeys, and policy violations; unfamiliar behavior is flagged rather than treated as safe.
@@ -31,7 +33,7 @@ It calls only `/healthz`, `/readyz`, and an unsigned request without a payment h
 Public routes:
 
 - `GET /healthz`
-- `GET /readyz` (checks that the configured facilitator supports Testnet `exact` payments)
+- `GET /readyz` (checks that the configured facilitator supports configured-network `exact` payments)
 - `GET /v1/capabilities`
 - `POST /v1/validate-transaction` (free bounded request preflight; no report)
 
@@ -79,7 +81,7 @@ Requests are capped at 128 KiB before payment middleware, and repeated unpaid in
 
 ## Local verification coverage
 
-`npm test` currently runs 37 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; and the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits).
+`npm test` currently runs 39 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests except for the Testnet settlement proof above. They do not substitute for the remaining public HTTPS, durable-idempotency, Bazaar-catalog, or deliberate MainNet smoke tests.
 
