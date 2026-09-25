@@ -19,7 +19,7 @@ describe("MainNet preflight script", () => {
         payTo: "MAINNETRECEIVER",
         extra: { asset: USDC_MAINNET_ASA_ID, tag: "x402-global-challenge" },
       }],
-      extensions: { bazaar: { info: { body: { method: "POST" } } } },
+      extensions: { bazaar: { info: { input: { method: "POST" } } } },
     };
     const request = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: "ok" }), { status: 200 }))

@@ -39,7 +39,7 @@ export function createHarmlessMainnetInspectionRequest(): {
 
 function decodePaymentRequired(value: string | null): {
   accepts?: Array<{ scheme?: string; network?: string; payTo?: string; extra?: { asset?: string; tag?: string } }>;
-  extensions?: { bazaar?: { info?: { body?: { method?: string } } } };
+  extensions?: { bazaar?: { info?: { input?: { method?: string } } } };
 } {
   if (value === null) throw new Error("Expected a Payment-Required header on the 402 response.");
   try {
@@ -89,7 +89,7 @@ export async function verifyMainnetPreflight(
   if (payment?.network === undefined || payment.extra?.asset === undefined || payment.extra.tag === undefined || payment.payTo === undefined) {
     throw new Error("402 did not advertise the required MainNet USDC x402 payment metadata.");
   }
-  if (paymentRequired.extensions?.bazaar?.info?.body?.method !== "POST") {
+  if (paymentRequired.extensions?.bazaar?.info?.input?.method !== "POST") {
     throw new Error("402 did not include Bazaar metadata for the POST inspection endpoint.");
   }
 
