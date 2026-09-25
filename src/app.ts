@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { Hono, type Context } from "hono";
+import { cors } from "hono/cors";
 import { ExactAvmScheme } from "@x402/avm/exact/server";
 import {
   paymentMiddlewareFromHTTPServer,
@@ -26,6 +27,7 @@ const IDEMPOTENCY_TTL_MS = 10 * 60 * 1000;
 const UNPAID_REQUEST_LIMIT = 30;
 const UNPAID_REQUEST_WINDOW_MS = 60 * 1000;
 const MICROVERN_DISCOVERY_TAGS = ["algorand", "transaction-safety", "x402-global-challenge"];
+const MICROVERN_REVIEW_ORIGIN = "https://chriswozniak.github.io";
 
 const INSPECTION_REQUEST_SCHEMA = {
   type: "object",
@@ -316,6 +318,16 @@ function addRoutes(
   });
 }
 
+function addBrowserReviewCors(app: Hono): void {
+  app.use("*", cors({
+    origin: MICROVERN_REVIEW_ORIGIN,
+    allowMethods: ["GET", "POST", "OPTIONS"],
+    allowHeaders: ["Content-Type", "Idempotency-Key", "X-Request-Id", "Payment-Signature", "X-Payment"],
+    exposeHeaders: ["Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-Request-Id"],
+    maxAge: 86_400,
+  }));
+}
+
 export function createPaymentProtectedService(
   paymentConfig: PaymentConfig,
   facilitatorClient: FacilitatorClient = new HTTPFacilitatorClient({ url: paymentConfig.facilitatorUrl }),
@@ -327,6 +339,7 @@ export function createPaymentProtectedService(
   const paymentServer = new x402HTTPResourceServer(resourceServer, protectedRoutes(paymentConfig));
   const app = new Hono();
 
+  addBrowserReviewCors(app);
   app.use(async (c, next) => {
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();
@@ -346,6 +359,7 @@ export function createPaymentProtectedService(
 
 export function createLocalAnalysisApp(idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore()): Hono {
   const localApp = new Hono();
+  addBrowserReviewCors(localApp);
   localApp.use(async (c, next) => {
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();

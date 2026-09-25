@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.3
+**Version:** 1.4
 **Date:** 2026-09-25
 **Status:** Living product plan
 
@@ -111,12 +111,13 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 39 deterministic tests, including MainNet preflight behavior. |
+| Automated coverage | Delivered | `npm test` runs 42 deterministic tests, including MainNet preflight behavior and the public review console's browser-access policy. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA`](https://lora.algokit.io/testnet/transaction/PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA). |
 | MainNet deployment foundation | Delivered in code | Explicit guard, durable idempotency, separate Render Blueprint, and no-payment preflight command. |
 | Public landing page | Delivered | [GitHub Pages](https://chriswozniak.github.io/microvern-x402/) publishes the product explanation and original icon over HTTPS. |
+| Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, free structural preflight, policy builder, x402 quote disclosure, and report viewer. It does not request wallet secrets or sign transactions. |
 | Bazaar discovery | Pending external indexing | TestNet discovery has not listed the service; that does not invalidate the paid endpoint. |
 
 ## MainNet release gates
@@ -149,13 +150,9 @@ needs a focused safety and design review before implementation begins.
 **Purpose:** provide a mobile-friendly, plain-language review flow while
 keeping signing and payment approval in the user's existing wallet.
 
-**Requirements:** validate the pasted or imported unsigned group for free,
-then disclose the exact network, USDC amount, recipient, and purpose before a
-wallet payment is requested. Show the highest-risk actions first, total
-outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw
-technical details only on demand. Use plain language such as "changes signing
-authority" alongside the technical term "rekey". Never call a result "safe";
-use "no configured rule triggered" instead.
+**Delivered foundation:** a mobile-friendly GitHub Pages review console validates a pasted unsigned group for free, builds a bounded policy, discloses an unpaid x402 quote, and renders a returned report. The console does not custody a wallet or automatically sign a payment.
+
+**Remaining requirements:** integrate an explicit wallet payment approval only after the console discloses the exact network, USDC amount, recipient, and purpose. Show the highest-risk actions first, total outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw technical details only on demand. Use plain language such as "changes signing authority" alongside the technical term "rekey". Never call a result "safe"; use "no configured rule triggered" instead.
 
 **Acceptance:** a demo client can submit a group, display its summary and
 warnings, obtain explicit payment approval in the user's wallet, then show the

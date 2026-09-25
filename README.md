@@ -30,7 +30,7 @@ For a public Testnet deployment on Render Free, use [the Render deployment guide
 
 ## Public landing page and MainNet preflight
 
-The GitHub Pages-ready landing page and original MicroVern icon live in [`docs/index.html`](docs/index.html) and [`docs/assets/microvern-icon.svg`](docs/assets/microvern-icon.svg). After these files are pushed, enable GitHub Pages in the repository: **Settings** → **Pages** → **Deploy from a branch** → `main` → `/docs`. The expected icon URL is `https://chriswozniak.github.io/microvern-x402/assets/microvern-icon.svg`; confirm it loads publicly before entering it as `MICROVERN_ICON_URL` in the MainNet Blueprint.
+The GitHub Pages-ready landing page and original MicroVern icon live in [`docs/index.html`](docs/index.html) and [`docs/assets/microvern-icon.svg`](docs/assets/microvern-icon.svg). The page includes a browser review console: it builds a bounded policy, submits the free structural preflight, and can disclose the exact x402 quote without signing or sending a payment. A paid report is deliberately obtained by a compatible wallet or agent; the page never asks for a seed phrase, private key, or wallet custody. After these files are pushed, enable GitHub Pages in the repository: **Settings** → **Pages** → **Deploy from a branch** → `main` → `/docs`. The expected icon URL is `https://chriswozniak.github.io/microvern-x402/assets/microvern-icon.svg`; confirm it loads publicly before entering it as `MICROVERN_ICON_URL` in the MainNet Blueprint.
 
 After the paid MainNet service is deployed, run the no-payment preflight:
 
@@ -92,7 +92,7 @@ Requests are capped at 128 KiB before payment middleware, and repeated unpaid in
 
 ## Local verification coverage
 
-`npm test` currently runs 39 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 42 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests except for the Testnet settlement proof above. They do not substitute for the remaining public HTTPS, durable-idempotency, Bazaar-catalog, or deliberate MainNet smoke tests.
 

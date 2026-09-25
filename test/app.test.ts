@@ -56,6 +56,20 @@ describe("MicroVern Stage 1 API", () => {
     expect((await capabilities.json()).payment).toEqual({ enabled: false, configured: false });
   });
 
+  it("allows the public GitHub Pages review console to use documented browser headers", async () => {
+    const response = await app.request("/v1/validate-transaction", {
+      method: "OPTIONS",
+      headers: {
+        origin: "https://chriswozniak.github.io",
+        "access-control-request-method": "POST",
+        "access-control-request-headers": "content-type,idempotency-key",
+      },
+    });
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://chriswozniak.github.io");
+    expect(response.headers.get("access-control-allow-headers")).toContain("Idempotency-Key");
+  });
+
   it("loads a validated Testnet USDC payment configuration", () => {
     const config = loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_ICON_URL: "https://microvern.example/icon.svg" });
     expect(config).toMatchObject({
