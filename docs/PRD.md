@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-09-24
 **Status:** Living product plan
 
@@ -87,6 +87,13 @@ MicroVern serves:
 - MainNet mode requires an explicit confirmation environment variable and a
   durable database connection before the server will start.
 
+The next reliability enhancement will bind an idempotency key to a
+privacy-preserving canonical request hash. Reusing a key for the same request
+will replay its completed report without another charge; using it for a
+different request will fail before payment. The hash, report, and payment
+receipt may be retained for the recovery window, but never the raw unsigned
+transaction payload.
+
 ## Current milestone and evidence
 
 | Item | Status | Evidence / notes |
@@ -97,7 +104,7 @@ MicroVern serves:
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA`](https://lora.algokit.io/testnet/transaction/PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA). |
 | MainNet deployment foundation | Delivered in code | Explicit guard, durable idempotency, separate Render Blueprint, and no-payment preflight command. |
-| Public landing-page source | Delivered in repository | `docs/index.html` and the icon are ready; GitHub Pages still needs enabling. |
+| Public landing page | Delivered | [GitHub Pages](https://chriswozniak.github.io/microvern-x402/) publishes the product explanation and original icon over HTTPS. |
 | Bazaar discovery | Pending external indexing | TestNet discovery has not listed the service; that does not invalidate the paid endpoint. |
 
 ## MainNet release gates
@@ -107,13 +114,14 @@ expansion. Complete the following gates in order.
 
 | Gate | Status | Completion criterion |
 | --- | --- | --- |
-| Enable GitHub Pages | Pending | The `main` branch's `/docs` folder is published and the icon URL is available. |
+| Enable GitHub Pages | Complete | The public landing page and icon are available over HTTPS at `https://chriswozniak.github.io/microvern-x402/`. |
 | Provision MainNet compute and PostgreSQL | Pending | The paid Render web service and private database are created from `render.mainnet.yaml`. |
 | Configure the MainNet receiver | Pending | A dedicated receiver is funded, opted into MainNet USDC, and set as `AVM_ADDRESS`. |
 | Configure public service metadata | Pending | `MICROVERN_ICON_URL` points to the published icon. |
 | Run no-payment preflight | Pending | `npm run verify:mainnet-preflight` passes against public HTTPS; it receives the expected 402 and makes no payment. |
 | Authorize and make one capped MainNet payment | Pending user approval | An intentional, low-value USDC inspection succeeds and its transaction is recorded. |
 | Verify discovery and submission evidence | Pending | Bazaar/leaderboard visibility is checked and public endpoint, proof, and documentation are ready. |
+| Complete challenge submission | Pending | Project details, paid-use evidence, and the public repository are submitted through the challenge process. |
 
 No MainNet payment or deployment should occur without explicit user approval.
 TestNet validates implementation; it does not satisfy a MainNet submission by
@@ -124,22 +132,48 @@ itself.
 These are planned directions, not features currently claimed as available. Each
 needs a focused safety and design review before implementation begins.
 
-### 1. Wallet-native review flow
+### 1. Human inspection and payment flow
 
-**Purpose:** provide a clear review screen in the product that created the
-unsigned group, while keeping signing in that product's existing wallet flow.
+**Purpose:** provide a mobile-friendly, plain-language review flow while
+keeping signing and payment approval in the user's existing wallet.
 
-**Requirements:** show the MicroVern report before signing; preserve the group
-identity; explain warnings in plain language; state that MicroVern is advisory
-and cannot sign or submit transactions.
+**Requirements:** validate the pasted or imported unsigned group for free,
+then disclose the exact network, USDC amount, recipient, and purpose before a
+wallet payment is requested. Show the highest-risk actions first, total
+outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw
+technical details only on demand. Use plain language such as "changes signing
+authority" alongside the technical term "rekey". Never call a result "safe";
+use "no configured rule triggered" instead.
 
-**Acceptance:** a wallet or demo client can submit a group, display its summary
-and warnings, then hand the unchanged group to its own signing process. No key,
-mnemonic, or signing request reaches MicroVern.
+**Acceptance:** a demo client can submit a group, display its summary and
+warnings, obtain explicit payment approval in the user's wallet, then show the
+unchanged group for the user's own signing process. The delivered report shows
+its ruleset version, timestamp, request ID, and link to the settlement receipt.
+No key, mnemonic, or signing request reaches MicroVern.
 
 **Dependency:** stable public MainNet API and a documented client example.
 
-### 2. Account-state and execution-context checks
+### 2. Safe agent-payment client
+
+**Purpose:** make paid inspection quick and dependable for automated callers
+without allowing blind or unbounded spending.
+
+**Requirements:** provide a small TypeScript client/example built on the
+standard x402 fetch flow. It must validate first, generate and reuse an
+idempotency key, and apply local limits for maximum spend, accepted network and
+USDC asset, expected MicroVern domain, and expected `payTo` address. It must
+handle validation, payment-required, in-progress, throttled, and unavailable
+responses distinctly.
+
+**Acceptance:** an agent pays at most once for one logical inspection, can
+recover a completed report after a network interruption, and receives the
+settlement transaction ID plus a report checksum. A payment is refused locally
+when the server's quote does not match the agent's configured limits.
+
+**Dependency:** request-hash-bound durable idempotency and hardened MainNet
+service behavior.
+
+### 3. Account-state and execution-context checks
 
 **Purpose:** add current account, asset, and network context that raw bytes
 alone cannot provide.
@@ -156,7 +190,7 @@ and source status. A timeout or unavailable dependency becomes transparent
 **Dependency:** reliable Algod/indexer access, latency budget, caching, and
 privacy review.
 
-### 3. Named, versioned policy profiles
+### 4. Named, versioned policy profiles
 
 **Purpose:** let integrators apply their own review rules without forking the
 core analyzer.
@@ -172,7 +206,7 @@ before payment.
 **Dependency:** stable baseline findings and a backwards-compatible versioning
 policy.
 
-### 4. MCP interface for agent clients
+### 5. MCP interface for agent clients
 
 **Purpose:** make inspection discoverable and convenient for agent workflows
 without replacing the HTTP API.
@@ -187,7 +221,7 @@ confirmation step.
 
 **Dependency:** hardened MainNet service behavior and a clear agent-payment UX.
 
-### 5. Recognized application-call semantics
+### 6. Recognized application-call semantics
 
 **Purpose:** turn opaque application calls into useful descriptions where
 verified knowledge of a protocol or application exists.
@@ -202,7 +236,7 @@ versioned and reviewable.
 **Dependency:** a sustainable registry-maintenance process and
 protocol-specific fixtures.
 
-### 6. Expanded adversarial regression corpus
+### 7. Expanded adversarial regression corpus
 
 **Purpose:** preserve reliability as the analyzer and policy surface grow.
 
@@ -222,6 +256,11 @@ conflict rates; response latency; health/readiness availability; finding
 categories; and MainNet preflight and payment proofs. Do not retain keys,
 mnemonics, payment credentials, or raw unsigned transaction payloads for these
 metrics. Any new metric or storage needs privacy review before release.
+
+For public discovery, keep the landing-page title, description, logo, route
+description, and supported agent-oriented metadata accurate and specific about
+what the caller receives. The public page is
+[https://chriswozniak.github.io/microvern-x402/](https://chriswozniak.github.io/microvern-x402/).
 
 ## Source documents
 
