@@ -91,9 +91,49 @@ The publishable API contract is [docs/openapi.yaml](docs/openapi.yaml). Generate
 
 Requests are capped at 128 KiB before payment middleware, and repeated unpaid inspection attempts are rate-limited. MicroVern returns an `X-Request-Id` for support correlation and intentionally does not log raw transaction payloads. The in-memory idempotency cache is suitable for local/Testnet use. Set the secret `MICROVERN_POSTGRES_URL` to use the shared durable PostgreSQL store required for MainNet.
 
+## Agent-safe inspection client
+
+[`src/agent-client.ts`](src/agent-client.ts) provides a reusable TypeScript
+client for an agent that has its own approved `ClientAvmSigner`. It never
+accepts, stores, or derives a private key. Before the signer is reached, it:
+
+- sends the free structural preflight;
+- pins one HTTPS MicroVern origin and rejects redirects;
+- requires the configured Algorand CAIP-2 network, official USDC ASA, exact
+  receiver, and `exact` scheme;
+- rejects any quote above its caller-supplied atomic-USDC cap; and
+- generates an idempotency key unless a retry supplies the original key.
+
+For MainNet MicroVern, use a maximum of `10_000n` USDC atomic units (`$0.01`)
+and pin the deployed service and receiver explicitly. The caller must wire a
+secure wallet, hardware-backed signer, or other approved signing boundary;
+the client does not turn a private key into configuration.
+
+```ts
+import { createMicrovernAgentClient } from "./dist/agent-client.js";
+
+const microvern = createMicrovernAgentClient(agentSigner, {
+  serviceUrl: "https://microvern-x402-mainnet.onrender.com",
+  inspectionNetwork: "algorand-mainnet",
+  paymentNetwork: "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+  usdcAssetId: "31566704",
+  payTo: "GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE",
+  maxAmountAtomic: 10_000n,
+});
+
+const result = await microvern.inspect(unsignedRequest);
+// result.report, result.paymentTransactionId, result.idempotencyKey
+```
+
+Use the same `idempotencyKey` only to retry the same request after a timeout.
+The service rejects a key that is bound to different transaction data or policy.
+`AgentInspectionError.kind` distinguishes a changed payment requirement,
+in-progress inspection, throttling, service unavailability, and a rejected
+request so an agent can recover without guessing from error text.
+
 ## Local verification coverage
 
-`npm test` currently runs 42 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 47 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, and typed recovery errors; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests except for the Testnet settlement proof above. They do not substitute for the remaining public HTTPS, durable-idempotency, Bazaar-catalog, or deliberate MainNet smoke tests.
 

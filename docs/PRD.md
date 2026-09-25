@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.4
+**Version:** 1.5
 **Date:** 2026-09-25
 **Status:** Living product plan
 
@@ -111,7 +111,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 42 deterministic tests, including MainNet preflight behavior and the public review console's browser-access policy. |
+| Automated coverage | Delivered | `npm test` runs 47 deterministic tests, including MainNet preflight behavior, the public review console's browser-access policy, and agent payment trust boundaries. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA`](https://lora.algokit.io/testnet/transaction/PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA). |
@@ -167,12 +167,20 @@ No key, mnemonic, or signing request reaches MicroVern.
 **Purpose:** make paid inspection quick and dependable for automated callers
 without allowing blind or unbounded spending.
 
-**Requirements:** provide a small TypeScript client/example built on the
-standard x402 fetch flow. It must validate first, generate and reuse an
-idempotency key, and apply local limits for maximum spend, accepted network and
-USDC asset, expected MicroVern domain, and expected `payTo` address. It must
-handle validation, payment-required, in-progress, throttled, and unavailable
-responses distinctly.
+**Delivered foundation:** [`src/agent-client.ts`](../src/agent-client.ts)
+provides a small TypeScript client built on the standard x402 fetch flow. It
+validates first, generates or accepts a retry idempotency key, pins an HTTPS
+service origin, rejects redirects, and filters payment requirements to the
+configured `exact` Algorand CAIP-2 network, official USDC ASA, receiver, and
+maximum atomic-USDC amount. It returns the report, idempotency key, correlation
+ID, and settlement transaction ID. Typed errors distinguish changed payment
+requirements, in-progress inspections, throttling, unavailability, and
+rejections. It requires a caller-supplied approved signer and never accepts a
+key as client configuration.
+
+**Remaining requirements:** add an executable integration example backed by a
+dedicated agent wallet after MainNet USDC is available, and document the
+operational handling of throttled or unavailable responses.
 
 **Acceptance:** an agent pays at most once for one logical inspection, can
 recover a completed report after a network interruption, and receives the
