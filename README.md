@@ -8,11 +8,12 @@ The current scope, MainNet release gates, and prioritized future iterations are 
 
 ## Why the name MicroVern
 
-**MicroVern** means "small protection." **Micro** represents the focused check
-of a transaction before signing. **Vern** is Norwegian for protection, defense,
-or safeguarding, with roots in Old Norse. MicroVern is the protective layer
-between an unsigned Algorand transaction and a user's approval. This is a
-decision-support aid, not a guarantee that a transaction is safe. See the
+**MicroVern** combines a focused transaction check before signing with **vern**,
+the Norwegian word for protection, defense, or safeguarding, with roots in Old
+Norse. MicroVern is the protective layer between an unsigned Algorand
+transaction and a user's approval. Its product promise is: **Know what you
+sign. Clarity before commitment.** This is a decision-support aid, not a
+guarantee that a transaction is safe. See the
 [Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
 ## Current milestone: Testnet x402-protected analysis, with MainNet preflight safeguards

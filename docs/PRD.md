@@ -16,11 +16,11 @@ pay only when it needs the full inspection report.
 
 ### Name meaning
 
-**MicroVern** means "small protection." **Micro** represents a focused
-transaction check before signing. **Vern** is Norwegian for protection,
-defense, or safeguarding, with roots in Old Norse. The name expresses
-MicroVern's role as a protective layer between an unsigned Algorand transaction
-and a user's approval. It is decision support, not a guarantee that a
+**MicroVern** combines a focused transaction check before signing with **vern**,
+the Norwegian word for protection, defense, or safeguarding, with roots in Old
+Norse. The name expresses MicroVern's role as a protective layer between an
+unsigned Algorand transaction and a user's approval. Its product promise is:
+_Know what you sign. Clarity before commitment._ It is decision support, not a guarantee that a
 transaction is safe. See the [Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
 The product is deliberately an inspection service. It does not custody funds,
