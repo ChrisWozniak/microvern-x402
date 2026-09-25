@@ -2,7 +2,7 @@
 
 MicroVern explains unsigned Algorand transactions before signing. It is a deterministic, best-effort decision-support API: it does not custody funds, accept wallet secrets, submit customer transactions, or guarantee safety.
 
-## Current milestone: Testnet x402-protected analysis
+## Current milestone: Testnet x402-protected analysis, with MainNet preflight safeguards
 
 The local API accepts a base64 encoding of one or more concatenated unsigned Algorand transactions, each encoded by `algosdk.encodeUnsignedTransaction`. Multi-transaction inputs must have one shared Algorand group ID. It explains transfers, asset opt-ins/out, close-outs, clawbacks, asset administration, app calls, rekeys, and policy violations; unfamiliar behavior is flagged rather than treated as safe.
 
@@ -13,7 +13,7 @@ npm run build
 npm start
 ```
 
-For a public Testnet deployment on Render Free, use [the Render deployment guide](docs/render_testnet_deployment.md). The included `render.yaml` compiles the service and starts `dist/server.js`; it prompts for the receiver address rather than storing environment configuration in the repository.
+For a public Testnet deployment on Render Free, use [the Render deployment guide](docs/render_testnet_deployment.md). The included `render.yaml` compiles the service and starts `dist/server.js`; it prompts for the receiver address rather than storing environment configuration in the repository. A separate, paid-MainNet Blueprint is prepared in [the MainNet Render deployment guide](docs/render_mainnet_deployment.md); it does not modify the Testnet service.
 
 Public routes:
 
@@ -42,7 +42,15 @@ Example request body:
 }
 ```
 
-Testnet payment configuration is loaded from `AVM_ADDRESS`, `FACILITATOR_URL`, and `MICROVERN_PRICE_USD`. Copy `.env.example` to `.env` to use the funded Testnet receiver. Startup fails closed when `AVM_ADDRESS` is absent or invalid, or when the facilitator does not advertise Testnet `exact` support. `GET /healthz` is intentionally independent of the facilitator; use `GET /readyz` for deployment readiness.
+Testnet payment configuration is loaded from `AVM_ADDRESS`, `FACILITATOR_URL`, and `MICROVERN_PRICE_USD`; `MICROVERN_PAYMENT_NETWORK` defaults to `testnet`. Copy `.env.example` to `.env` to use the funded Testnet receiver. Startup fails closed when `AVM_ADDRESS` is absent or invalid, or when the facilitator does not advertise the configured network's `exact` support. `GET /healthz` is intentionally independent of the facilitator; use `GET /readyz` for deployment readiness.
+
+## MainNet preflight status
+
+MicroVern recognizes `MICROVERN_PAYMENT_NETWORK=mainnet` and uses the hosted facilitator's verified full MainNet CAIP-2 identifier and MainNet USDC ASA `31566704`. Selecting it also requires the exact explicit confirmation `MICROVERN_MAINNET_CONFIRMATION=ENABLE_MAINNET_PAYMENTS`; this prevents a receiver-address configuration change from accidentally exposing a real-money endpoint.
+
+MainNet startup requires `MICROVERN_POSTGRES_URL`, a secret PostgreSQL connection URL. When configured, MicroVern creates a small `microvern_idempotency` table and atomically reserves each paid `Idempotency-Key` before payment middleware runs. It stores only the completed response and payment receipt—not the submitted unsigned transaction group—and safely replays a completed report for 10 minutes across restarts or multiple instances. A concurrent duplicate receives `409` with `Retry-After: 2` before payment processing.
+
+Before any MainNet deployment, also use an always-on production service, a paid durable Postgres instance, a MainNet USDC-opted-in receiver, a real HTTPS icon, and an explicitly approved small MainNet payment. The existing Render Free Testnet service remains Testnet-only.
 
 ## Bazaar discovery metadata
 
@@ -54,11 +62,11 @@ Set `MICROVERN_ICON_URL` to the real absolute HTTPS URL of MicroVern's public ic
 
 The publishable API contract is [docs/openapi.yaml](docs/openapi.yaml). Generate a harmless unsigned Testnet sample request with `node examples/generate-inspection-request.mjs`; send it first to `/v1/validate-transaction`, then to the paid endpoint with an `Idempotency-Key` of 8–128 URL-safe characters. A completed report can be replayed with that same key for 10 minutes on the same server instance without another x402 payment attempt. Use a new key for a different request.
 
-Requests are capped at 128 KiB before payment middleware, and repeated unpaid inspection attempts are rate-limited. MicroVern returns an `X-Request-Id` for support correlation and intentionally does not log raw transaction payloads. The in-memory idempotency cache is suitable for local/Testnet use; public deployment must replace it with a shared durable store.
+Requests are capped at 128 KiB before payment middleware, and repeated unpaid inspection attempts are rate-limited. MicroVern returns an `X-Request-Id` for support correlation and intentionally does not log raw transaction payloads. The in-memory idempotency cache is suitable for local/Testnet use. Set the secret `MICROVERN_POSTGRES_URL` to use the shared durable PostgreSQL store required for MainNet.
 
 ## Local verification coverage
 
-`npm test` currently runs 34 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; validated Testnet payment configuration; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; idempotency-key validation and replay; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; and the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits).
+`npm test` currently runs 37 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; and the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits).
 
 These are local, mocked-facilitator tests except for the Testnet settlement proof above. They do not substitute for the remaining public HTTPS, durable-idempotency, Bazaar-catalog, or deliberate MainNet smoke tests.
 

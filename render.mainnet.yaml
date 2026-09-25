@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+# Separate paid MainNet stack. Do not apply this Blueprint until MainNet launch
+# is approved; it creates a web service and a Postgres database.
+services:
+  - type: web
+    name: microvern-x402-mainnet
+    runtime: node
+    region: oregon
+    plan: 0.5c-512mb
+    numInstances: 1
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeployTrigger: off
+    envVars:
+      - key: MICROVERN_PAYMENT_NETWORK
+        value: mainnet
+      - key: MICROVERN_MAINNET_CONFIRMATION
+        value: ENABLE_MAINNET_PAYMENTS
+      - key: AVM_ADDRESS
+        sync: false
+      - key: MICROVERN_ICON_URL
+        sync: false
+      - key: MICROVERN_POSTGRES_URL
+        fromDatabase:
+          name: microvern-x402-mainnet-db
+          property: connectionString
+
+databases:
+  - name: microvern-x402-mainnet-db
+    region: oregon
+    plan: 0.1c-256mb
+    diskSizeGB: 1
+    ipAllowList: []

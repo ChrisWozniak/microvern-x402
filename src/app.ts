@@ -9,8 +9,9 @@ import {
 import { HTTPFacilitatorClient, type FacilitatorClient } from "@x402/core/server";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
 import { inspectUnsignedTransaction } from "./analyze.js";
-import { loadTestnetPaymentConfig, type TestnetPaymentConfig } from "./config.js";
+import { loadPaymentConfig, type PaymentConfig } from "./config.js";
 import { ValidationError } from "./errors.js";
+import { InMemoryIdempotencyStore, type IdempotencyStore } from "./idempotency.js";
 import { parseInspectionRequest } from "./validation.js";
 import { RULESET_VERSION } from "./types.js";
 
@@ -71,33 +72,29 @@ const INSPECTION_RESPONSE_SCHEMA = {
   },
 } as const;
 
-const INSPECTION_DISCOVERY_EXTENSION = declareDiscoveryExtension({
-  bodyType: "json",
-  input: {
-    network: "algorand-testnet",
-    unsignedTransactionGroup: "haNmZWXNA+iiZnYBomdoxCBIY7UYpLPITsgQ8i1PEIHLD3HwWaesIN7GL39w5Qk6IqJsds0D6KR0eXBlo3BheQ==",
-    policy: { maxAlgoSend: 1, allowRekey: false },
-  },
-  inputSchema: INSPECTION_REQUEST_SCHEMA,
-  output: {
-    example: {
-      verdict: "allow",
-      riskScore: 0,
-      summary: "1 action analyzed; no configured policy violation found.",
-      actions: [{ index: 0, type: "algo-transfer", description: "Sends 0 ALGO.", consequences: [] }],
-      findings: [],
-      policyEvaluation: { maxAlgoSend: "passed", allowRekey: "passed" },
-      rulesetVersion: RULESET_VERSION,
-      disclaimer: "Deterministic, best-effort decision support; verify all transaction details before signing.",
+function inspectionDiscoveryExtension(network: PaymentConfig["network"]) {
+  return declareDiscoveryExtension({
+    bodyType: "json",
+    input: {
+      network,
+      unsignedTransactionGroup: "haNmZWXNA+iiZnYBomdoxCBIY7UYpLPITsgQ8i1PEIHLD3HwWaesIN7GL39w5Qk6IqJsds0D6KR0eXBlo3BheQ==",
+      policy: { maxAlgoSend: 1, allowRekey: false },
     },
-    schema: INSPECTION_RESPONSE_SCHEMA,
-  },
-});
-
-interface CachedInspection {
-  readonly body: unknown;
-  readonly expiresAt: number;
-  readonly paymentResponse: string | null;
+    inputSchema: INSPECTION_REQUEST_SCHEMA,
+    output: {
+      example: {
+        verdict: "allow",
+        riskScore: 0,
+        summary: "1 action analyzed; no configured policy violation found.",
+        actions: [{ index: 0, type: "algo-transfer", description: "Sends 0 ALGO.", consequences: [] }],
+        findings: [],
+        policyEvaluation: { maxAlgoSend: "passed", allowRekey: "passed" },
+        rulesetVersion: RULESET_VERSION,
+        disclaimer: "Deterministic, best-effort decision support; verify all transaction details before signing.",
+      },
+      schema: INSPECTION_RESPONSE_SCHEMA,
+    },
+  });
 }
 
 interface RateLimitWindow {
@@ -137,8 +134,11 @@ async function readRequestJson(c: Context): Promise<unknown> {
   }
 }
 
-function addInspectionGuards(app: Hono): void {
-  const responses = new Map<string, CachedInspection>();
+function addInspectionGuards(
+  app: Hono,
+  idempotencyStore: IdempotencyStore,
+  allowUnpaidIdempotency: boolean,
+): void {
   const unpaidWindows = new Map<string, RateLimitWindow>();
 
   app.use("/v1/inspect-transaction", async (c, next) => {
@@ -171,30 +171,37 @@ function addInspectionGuards(app: Hono): void {
     if (key === undefined) return next();
     if (!validIdempotencyKey(key)) return c.json({ error: "Idempotency-Key must contain 8 to 128 URL-safe characters." }, 400);
 
-    const now = Date.now();
-    const cached = responses.get(key);
-    if (cached !== undefined && cached.expiresAt > now) {
+    if (!allowUnpaidIdempotency && !hasPaymentProof(c)) return next();
+
+    const acquisition = await idempotencyStore.acquire(key, IDEMPOTENCY_TTL_MS);
+    if (acquisition.state === "completed") {
       c.header("X-Idempotent-Replay", "true");
-      if (cached.paymentResponse !== null) c.header("Payment-Response", cached.paymentResponse);
-      return c.json(cached.body);
+      if (acquisition.response.paymentResponse !== null) c.header("Payment-Response", acquisition.response.paymentResponse);
+      return c.json(acquisition.response.body, acquisition.response.status);
     }
-    if (cached !== undefined) responses.delete(key);
+    if (acquisition.state === "in-progress") {
+      c.header("Retry-After", "2");
+      return c.json({ error: "An inspection with this Idempotency-Key is already being processed." }, 409);
+    }
 
     await next();
-    if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) return;
+    if (c.res.status !== 200 || !c.res.headers.get("content-type")?.includes("application/json")) {
+      await idempotencyStore.release(key);
+      return;
+    }
     try {
-      responses.set(key, {
+      await idempotencyStore.complete(key, {
+        status: c.res.status,
         body: await c.res.clone().json(),
-        expiresAt: Date.now() + IDEMPOTENCY_TTL_MS,
         paymentResponse: c.res.headers.get("payment-response"),
-      });
+      }, IDEMPOTENCY_TTL_MS);
     } catch {
-      // Only a complete JSON report is eligible for replay.
+      // Retain the processing lease rather than risking a second paid attempt.
     }
   });
 }
 
-function protectedRoutes(paymentConfig: TestnetPaymentConfig) {
+function protectedRoutes(paymentConfig: PaymentConfig) {
   return {
     "POST /v1/inspect-transaction": {
       accepts: {
@@ -209,13 +216,13 @@ function protectedRoutes(paymentConfig: TestnetPaymentConfig) {
       serviceName: "MicroVern",
       tags: MICROVERN_DISCOVERY_TAGS,
       ...(paymentConfig.iconUrl === undefined ? {} : { iconUrl: paymentConfig.iconUrl }),
-      extensions: INSPECTION_DISCOVERY_EXTENSION,
+      extensions: inspectionDiscoveryExtension(paymentConfig.network),
     },
   };
 }
 
 function supportsConfiguredPayment(
-  paymentConfig: TestnetPaymentConfig,
+  paymentConfig: PaymentConfig,
   kinds: Awaited<ReturnType<FacilitatorClient["getSupported"]>>["kinds"],
 ): boolean {
   return kinds.some((kind) => (
@@ -227,11 +234,11 @@ function supportsConfiguredPayment(
 
 function addRoutes(
   app: Hono,
-  paymentConfig: TestnetPaymentConfig | undefined,
+  paymentConfig: PaymentConfig | undefined,
   facilitatorClient: FacilitatorClient | undefined,
   paymentEnabled: boolean,
 ): void {
-  const advertisedConfig = paymentConfig ?? loadTestnetPaymentConfig();
+  const advertisedConfig = paymentConfig ?? loadPaymentConfig();
 
   app.get("/healthz", (c) => c.json({ status: "ok" }));
   app.get("/readyz", async (c) => {
@@ -242,7 +249,8 @@ function addRoutes(
     try {
       const supported = await facilitatorClient.getSupported();
       if (!supportsConfiguredPayment(paymentConfig, supported.kinds)) {
-        return c.json({ status: "not-ready", reason: "facilitator_missing_testnet_exact" }, 503);
+        const networkName = paymentConfig.network === "algorand-mainnet" ? "mainnet" : "testnet";
+        return c.json({ status: "not-ready", reason: `facilitator_missing_${networkName}_exact` }, 503);
       }
       return c.json({ status: "ready", network: paymentConfig.network, scheme: "exact" });
     } catch {
@@ -293,8 +301,9 @@ function addRoutes(
 }
 
 export function createPaymentProtectedService(
-  paymentConfig: TestnetPaymentConfig,
+  paymentConfig: PaymentConfig,
   facilitatorClient: FacilitatorClient = new HTTPFacilitatorClient({ url: paymentConfig.facilitatorUrl }),
+  idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
 ): MicrovernService {
   const resourceServer = new x402ResourceServer(facilitatorClient)
     .register(paymentConfig.caip2, new ExactAvmScheme())
@@ -306,20 +315,26 @@ export function createPaymentProtectedService(
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();
   });
-  addInspectionGuards(app);
+  addInspectionGuards(app, idempotencyStore, false);
   app.use(paymentMiddlewareFromHTTPServer(paymentServer, undefined, undefined, false));
   addRoutes(app, paymentConfig, facilitatorClient, true);
 
-  return { app, initialize: () => paymentServer.initialize() };
+  return {
+    app,
+    initialize: async () => {
+      await idempotencyStore.initialize();
+      await paymentServer.initialize();
+    },
+  };
 }
 
-export function createLocalAnalysisApp(): Hono {
+export function createLocalAnalysisApp(idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore()): Hono {
   const localApp = new Hono();
   localApp.use(async (c, next) => {
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();
   });
-  addInspectionGuards(localApp);
+  addInspectionGuards(localApp, idempotencyStore, true);
   addRoutes(localApp, undefined, undefined, false);
   return localApp;
 }

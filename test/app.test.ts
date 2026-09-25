@@ -1,7 +1,18 @@
 import algosdk from "algosdk";
 import { describe, expect, it } from "vitest";
 import { app, createPaymentProtectedService } from "../src/app.js";
-import { GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2, GOPLAUSIBLE_FACILITATOR_URL, loadTestnetPaymentConfig, MICROVERN_TESTNET_PRICE_USD, requireTestnetPaymentConfig } from "../src/config.js";
+import {
+  GOPLAUSIBLE_ALGORAND_MAINNET_CAIP2,
+  GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2,
+  GOPLAUSIBLE_FACILITATOR_URL,
+  loadPaymentConfig,
+  loadPostgresIdempotencyUrl,
+  loadTestnetPaymentConfig,
+  MICROVERN_MAINNET_CONFIRMATION,
+  MICROVERN_TESTNET_PRICE_USD,
+  requireTestnetPaymentConfig,
+} from "../src/config.js";
+import { InMemoryIdempotencyStore, createIdempotencyStore } from "../src/idempotency.js";
 import type { FacilitatorClient } from "@x402/core/server";
 
 const sender = algosdk.generateAccount();
@@ -55,6 +66,44 @@ describe("MicroVern Stage 1 API", () => {
       usdcAssetId: "10458941",
       usdcDecimals: 6,
       iconUrl: "https://microvern.example/icon.svg",
+    });
+  });
+
+  it("requires an explicit confirmation before loading MainNet USDC payment configuration", () => {
+    const baseEnvironment = {
+      AVM_ADDRESS: receiver.addr.toString(),
+      MICROVERN_PAYMENT_NETWORK: "mainnet",
+    };
+    expect(() => loadPaymentConfig(baseEnvironment)).toThrow("MICROVERN_MAINNET_CONFIRMATION");
+
+    const config = loadPaymentConfig({
+      ...baseEnvironment,
+      MICROVERN_MAINNET_CONFIRMATION,
+    });
+    expect(config).toMatchObject({
+      network: "algorand-mainnet",
+      caip2: GOPLAUSIBLE_ALGORAND_MAINNET_CAIP2,
+      usdcAssetId: "31566704",
+      usdcDecimals: 6,
+    });
+  });
+
+  it("accepts only a PostgreSQL URL for the durable idempotency store", () => {
+    expect(loadPostgresIdempotencyUrl({})).toBeUndefined();
+    expect(() => loadPostgresIdempotencyUrl({ MICROVERN_POSTGRES_URL: "https://database.example" })).toThrow("MICROVERN_POSTGRES_URL");
+    expect(loadPostgresIdempotencyUrl({ MICROVERN_POSTGRES_URL: "postgresql://user:password@database.example:5432/microvern" })).toBe("postgresql://user:password@database.example:5432/microvern");
+    expect(createIdempotencyStore("postgresql://user:password@database.example:5432/microvern").durable).toBe(true);
+  });
+
+  it("atomically reserves, completes, and replays idempotency keys in memory", async () => {
+    const store = new InMemoryIdempotencyStore();
+    await store.initialize();
+    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({ state: "acquired" });
+    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({ state: "in-progress" });
+    await store.complete("durable-fixture-key", { status: 200, body: { verdict: "allow" }, paymentResponse: "receipt" }, 60_000);
+    expect(await store.acquire("durable-fixture-key", 60_000)).toEqual({
+      state: "completed",
+      response: { status: 200, body: { verdict: "allow" }, paymentResponse: "receipt" },
     });
   });
 

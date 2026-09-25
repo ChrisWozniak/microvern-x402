@@ -1,22 +1,29 @@
 import {
+  ALGORAND_MAINNET_GENESIS_HASH,
   ALGORAND_TESTNET_GENESIS_HASH,
   USDC_DECIMALS,
+  USDC_MAINNET_ASA_ID,
   USDC_TESTNET_ASA_ID,
   isValidAlgorandAddress,
 } from "@x402/avm";
 
 export const GOPLAUSIBLE_FACILITATOR_URL = "https://facilitator.goplausible.xyz";
-// GoPlausible currently advertises the full Algorand Testnet genesis hash in /supported.
-export const GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2 = `algorand:${ALGORAND_TESTNET_GENESIS_HASH}`;
+// GoPlausible advertises full Algorand genesis hashes in /supported.
+export const GOPLAUSIBLE_ALGORAND_MAINNET_CAIP2: `algorand:${string}` = `algorand:${ALGORAND_MAINNET_GENESIS_HASH}`;
+export const GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2: `algorand:${string}` = `algorand:${ALGORAND_TESTNET_GENESIS_HASH}`;
+export const MICROVERN_MAINNET_PRICE_USD = "$0.01";
 export const MICROVERN_TESTNET_PRICE_USD = "$0.01";
+export const MICROVERN_MAINNET_CONFIRMATION = "ENABLE_MAINNET_PAYMENTS";
 
-export interface TestnetPaymentConfig {
-  readonly network: "algorand-testnet";
-  readonly caip2: typeof GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2;
+export type MicrovernPaymentNetwork = "algorand-mainnet" | "algorand-testnet";
+
+export interface PaymentConfig {
+  readonly network: MicrovernPaymentNetwork;
+  readonly caip2: `${string}:${string}`;
   readonly payTo: string;
   readonly facilitatorUrl: string;
   readonly priceUsd: string;
-  readonly usdcAssetId: typeof USDC_TESTNET_ASA_ID;
+  readonly usdcAssetId: typeof USDC_MAINNET_ASA_ID | typeof USDC_TESTNET_ASA_ID;
   readonly usdcDecimals: typeof USDC_DECIMALS;
   /** Optional until the service has a public HTTPS-hosted icon. */
   readonly iconUrl?: string;
@@ -40,10 +47,37 @@ function optionalHttpsUrl(value: string | undefined, name: string): string | und
   }
 }
 
-export function loadTestnetPaymentConfig(environment: NodeJS.ProcessEnv = process.env): TestnetPaymentConfig | undefined {
+function paymentNetwork(environment: NodeJS.ProcessEnv): MicrovernPaymentNetwork {
+  const value = environment.MICROVERN_PAYMENT_NETWORK?.trim().toLowerCase() || "testnet";
+  if (value === "testnet" || value === "algorand-testnet") return "algorand-testnet";
+  if (value === "mainnet" || value === "algorand-mainnet") return "algorand-mainnet";
+  throw new Error("MICROVERN_PAYMENT_NETWORK must be either testnet or mainnet.");
+}
+
+export function loadPostgresIdempotencyUrl(environment: NodeJS.ProcessEnv = process.env): string | undefined {
+  const value = environment.MICROVERN_POSTGRES_URL?.trim();
+  if (value === undefined || value.length === 0) return undefined;
+  try {
+    const parsed = new URL(value);
+    if ((parsed.protocol !== "postgres:" && parsed.protocol !== "postgresql:") || parsed.hostname.length === 0) throw new Error();
+    return value;
+  } catch {
+    throw new Error("MICROVERN_POSTGRES_URL must be a valid postgres:// or postgresql:// connection URL.");
+  }
+}
+
+export function loadPaymentConfig(environment: NodeJS.ProcessEnv = process.env): PaymentConfig | undefined {
   const payTo = environment.AVM_ADDRESS?.trim();
   if (payTo === undefined || payTo.length === 0) return undefined;
   if (!isValidAlgorandAddress(payTo)) throw new Error("AVM_ADDRESS must be a valid Algorand address.");
+
+  const network = paymentNetwork(environment);
+  if (
+    network === "algorand-mainnet"
+    && environment.MICROVERN_MAINNET_CONFIRMATION?.trim() !== MICROVERN_MAINNET_CONFIRMATION
+  ) {
+    throw new Error(`MICROVERN_MAINNET_CONFIRMATION must equal ${MICROVERN_MAINNET_CONFIRMATION} before MainNet payments can be configured.`);
+  }
 
   const facilitatorUrl = environment.FACILITATOR_URL?.trim() || GOPLAUSIBLE_FACILITATOR_URL;
   try {
@@ -55,18 +89,39 @@ export function loadTestnetPaymentConfig(environment: NodeJS.ProcessEnv = proces
   const iconUrl = optionalHttpsUrl(environment.MICROVERN_ICON_URL, "MICROVERN_ICON_URL");
 
   return {
-    network: "algorand-testnet",
-    caip2: GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2,
+    network,
+    caip2: network === "algorand-mainnet"
+      ? GOPLAUSIBLE_ALGORAND_MAINNET_CAIP2
+      : GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2,
     payTo,
     facilitatorUrl,
-    priceUsd: requiredPrice(environment.MICROVERN_PRICE_USD?.trim() || MICROVERN_TESTNET_PRICE_USD),
-    usdcAssetId: USDC_TESTNET_ASA_ID,
+    priceUsd: requiredPrice(
+      environment.MICROVERN_PRICE_USD?.trim()
+      || (network === "algorand-mainnet" ? MICROVERN_MAINNET_PRICE_USD : MICROVERN_TESTNET_PRICE_USD),
+    ),
+    usdcAssetId: network === "algorand-mainnet" ? USDC_MAINNET_ASA_ID : USDC_TESTNET_ASA_ID,
     usdcDecimals: USDC_DECIMALS,
     ...(iconUrl === undefined ? {} : { iconUrl }),
   };
 }
 
-export function requireTestnetPaymentConfig(environment: NodeJS.ProcessEnv = process.env): TestnetPaymentConfig {
+export function requirePaymentConfig(environment: NodeJS.ProcessEnv = process.env): PaymentConfig {
+  const config = loadPaymentConfig(environment);
+  if (config === undefined) {
+    throw new Error("AVM_ADDRESS must be configured before starting the payment-protected MicroVern API.");
+  }
+  return config;
+}
+
+/**
+ * Backwards-compatible Testnet helper for the local Testnet client and callers
+ * that must never select MainNet.
+ */
+export function loadTestnetPaymentConfig(environment: NodeJS.ProcessEnv = process.env): PaymentConfig | undefined {
+  return loadPaymentConfig({ ...environment, MICROVERN_PAYMENT_NETWORK: "testnet" });
+}
+
+export function requireTestnetPaymentConfig(environment: NodeJS.ProcessEnv = process.env): PaymentConfig {
   const config = loadTestnetPaymentConfig(environment);
   if (config === undefined) {
     throw new Error("AVM_ADDRESS must be configured before starting the payment-protected MicroVern API.");
