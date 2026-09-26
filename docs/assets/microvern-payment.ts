@@ -70,6 +70,23 @@ function createPeraSigner(wallet: PeraWalletConnect, address: string): ClientAvm
   };
 }
 
+async function restoreOrConnectTestnetSession(wallet: PeraWalletConnect): Promise<string> {
+  // A QR scan can establish the WalletConnect session before this browser page
+  // receives the account callback. Restore that session first so a second click
+  // proceeds to the signing request instead of asking Pera to create it again.
+  const restored = await wallet.reconnectSession().catch(() => [] as string[]);
+  const accounts = restored.length > 0
+    ? restored
+    : await wallet.connect().catch(async (error) => {
+      const recovered = await wallet.reconnectSession().catch(() => [] as string[]);
+      if (recovered.length > 0) return recovered;
+      throw error;
+    });
+  const address = accounts[0];
+  if (address === undefined) throw new Error("Pera did not provide an account to use for the TestNet payment.");
+  return address;
+}
+
 export async function payForMicrovernTestnetInspection(
   serviceUrl: string,
   request: InspectionRequest,
@@ -84,9 +101,7 @@ export async function payForMicrovernTestnetInspection(
 
   const displayedRequirement = selectCappedTestnetPaymentRequirement(displayedQuote.accepts);
   const wallet = new PeraWalletConnect({ chainId: 416002, compactMode: true });
-  const accounts = await wallet.connect();
-  const address = accounts[0];
-  if (address === undefined) throw new Error("Pera did not provide an account to use for the TestNet payment.");
+  const address = await restoreOrConnectTestnetSession(wallet);
 
   const signer = createPeraSigner(wallet, address);
   const client = new x402Client()
