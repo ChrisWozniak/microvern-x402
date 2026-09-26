@@ -71,6 +71,20 @@ describe("MicroVern Stage 1 API", () => {
     expect(response.headers.get("access-control-expose-headers")).toContain("X-MicroVern-Report-Id");
   });
 
+  it("keeps CORS headers on a protected 402 quote for the public review console", async () => {
+    const config = requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString() });
+    const service = createPaymentProtectedService(config, supportedTestnetFacilitator());
+    await service.initialize();
+    const response = await service.app.request(requestFor(
+      algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams }),
+      undefined,
+      { origin: "https://chriswozniak.github.io" },
+    ));
+    expect(response.status).toBe(402);
+    expect(response.headers.get("access-control-allow-origin")).toBe("https://chriswozniak.github.io");
+    expect(response.headers.get("access-control-expose-headers")).toContain("Payment-Required");
+  });
+
   it("loads a validated Testnet USDC payment configuration", () => {
     const config = loadTestnetPaymentConfig({
       AVM_ADDRESS: receiver.addr.toString(),

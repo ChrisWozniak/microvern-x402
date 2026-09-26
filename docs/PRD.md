@@ -111,7 +111,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 69 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, the public review console's browser-access policy, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
+| Automated coverage | Delivered | `npm test` runs 74 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, the public review console's browser-access policy, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
@@ -152,9 +152,9 @@ needs a focused safety and design review before implementation begins.
 **Purpose:** provide a mobile-friendly, plain-language review flow while
 keeping signing and payment approval in the user's existing wallet.
 
-**Delivered foundation:** a mobile-friendly GitHub Pages review console validates a pasted unsigned group for free, builds a bounded policy, discloses an unpaid x402 quote, and renders a risk-first report with outgoing totals, recipients, fees, policy outcomes, evidence hashes, copy/download controls, and browser-local receipt verification. The console does not custody a wallet or automatically sign a payment.
+**Delivered foundation:** a mobile-friendly GitHub Pages review console validates a pasted unsigned group for free, builds a bounded policy, discloses an unpaid x402 quote, and renders a risk-first report with outgoing totals, recipients, fees, policy outcomes, evidence hashes, copy/download controls, and browser-local receipt verification. The TestNet Pera pilot can then request approval for exactly `$0.01` TestNet USDC from the pinned TestNet service. It rejects changed payment terms before Pera is asked to sign. The console does not custody a wallet, and Pera is asked only to sign the separate x402 payment transaction.
 
-**Remaining requirements:** integrate an explicit wallet payment approval only after the console discloses the exact network, USDC amount, recipient, and purpose. Show the highest-risk actions first, total outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw technical details only on demand. Use plain language such as "changes signing authority" alongside the technical term "rekey". Never call a result "safe"; use "no configured rule triggered" instead.
+**Remaining requirements:** complete and document a deliberate TestNet wallet payment test, then conduct a separate MainNet UX and security review before exposing browser MainNet payment. Continue to show the highest-risk actions first, total outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw technical details only on demand. Use plain language such as "changes signing authority" alongside the technical term "rekey". Never call a result "safe"; use "no configured rule triggered" instead.
 
 **Acceptance:** a demo client can submit a group, display its summary and
 warnings, obtain explicit payment approval in the user's wallet, then show the

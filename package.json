@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "build:docs": "node scripts/build-docs.mjs",
     "typecheck": "tsc --noEmit",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
@@ -27,8 +28,10 @@
     "pg": "8.23.0"
   },
   "devDependencies": {
+    "@perawallet/connect": "^1.6.1",
     "@types/node": "24.10.1",
     "@types/pg": "8.23.1",
+    "esbuild": "^0.27.0",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "5.0.1"

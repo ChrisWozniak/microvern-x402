@@ -346,6 +346,17 @@ function addRoutes(
 }
 
 function addBrowserReviewCors(app: Hono): void {
+  // The x402 middleware can short-circuit with a 402 before route handlers run.
+  // Set these headers before it so the public GitHub Pages console can read a
+  // quote and retry with its user-approved payment proof.
+  app.use("*", async (c, next) => {
+    if (c.req.header("origin") === MICROVERN_REVIEW_ORIGIN) {
+      c.header("Access-Control-Allow-Origin", MICROVERN_REVIEW_ORIGIN);
+      c.header("Access-Control-Expose-Headers", "Payment-Required, Payment-Response, Retry-After, X-Idempotent-Replay, X-MicroVern-Report-Id, X-Request-Id");
+      c.header("Vary", "Origin");
+    }
+    await next();
+  });
   app.use("*", cors({
     origin: MICROVERN_REVIEW_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
