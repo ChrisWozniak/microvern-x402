@@ -50,3 +50,22 @@ export function bindInspectionReport(request: InspectionRequest, analysis: Inspe
   const reportChecksum = sha256(`${MICROVERN_BINDING_FORMAT}:report`, { requestHash, analysis: analysis as unknown as CanonicalValue });
   return { ...analysis, requestHash, reportChecksum };
 }
+
+/** Verifies that an inspection report is intact and bound to this exact request. */
+export function verifyInspectionReportBinding(request: InspectionRequest, report: InspectionReport): boolean {
+  const requestHash = hashInspectionRequest(request);
+  if (report.requestHash !== requestHash) return false;
+  const analysis: InspectionAnalysis = {
+    verdict: report.verdict,
+    riskScore: report.riskScore,
+    summary: report.summary,
+    reviewSummary: report.reviewSummary,
+    actions: report.actions,
+    findings: report.findings,
+    policyEvaluation: report.policyEvaluation,
+    rulesetVersion: report.rulesetVersion,
+    disclaimer: report.disclaimer,
+  };
+  const checksum = sha256(`${MICROVERN_BINDING_FORMAT}:report`, { requestHash, analysis: analysis as unknown as CanonicalValue });
+  return report.reportChecksum === checksum;
+}

@@ -1,6 +1,7 @@
 import algosdk from "algosdk";
 import { describe, expect, it } from "vitest";
 import { inspectUnsignedTransaction } from "../src/analyze.js";
+import { verifyInspectionReportBinding } from "../src/binding.js";
 import { verifyMicrovernReceipt } from "../docs/assets/microvern-verification.js";
 
 const sender = algosdk.generateAccount();
@@ -17,6 +18,7 @@ describe("browser receipt verification", () => {
     };
     const report = inspectUnsignedTransaction(request.unsignedTransactionGroup, request.network, request.policy);
     await expect(verifyMicrovernReceipt(request, report)).resolves.toMatchObject({ requestHashMatches: true, reportChecksumMatches: true });
+    expect(verifyInspectionReportBinding(request, report)).toBe(true);
   });
 
   it("detects a changed request or modified report", async () => {
@@ -25,5 +27,6 @@ describe("browser receipt verification", () => {
     const report = inspectUnsignedTransaction(request.unsignedTransactionGroup, request.network);
     await expect(verifyMicrovernReceipt({ ...request, policy: { maxAlgoSend: 1 } }, report)).resolves.toMatchObject({ requestHashMatches: false, reportChecksumMatches: true });
     await expect(verifyMicrovernReceipt(request, { ...report, summary: "modified after delivery" })).resolves.toMatchObject({ requestHashMatches: true, reportChecksumMatches: false });
+    expect(verifyInspectionReportBinding(request, { ...report, summary: "modified after delivery" })).toBe(false);
   });
 });

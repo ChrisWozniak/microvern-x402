@@ -72,5 +72,6 @@ describe("MicrovernAgentClient", () => {
     expect(new AgentInspectionError(429, "slow down").kind).toBe("throttled");
     expect(new AgentInspectionError(503, "offline").kind).toBe("unavailable");
     expect(new AgentInspectionError(400, "invalid").kind).toBe("rejected");
+    expect(new AgentInspectionError(429, "slow down", 12).retryAfterSeconds).toBe(12);
   });
 });

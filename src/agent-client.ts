@@ -2,6 +2,7 @@ import { ExactAvmScheme } from "@x402/avm/exact/client";
 import type { ClientAvmSigner } from "@x402/avm";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
 import { randomUUID } from "node:crypto";
+import { verifyInspectionReportBinding } from "./binding.js";
 import type { InspectionReport, InspectionRequest, Network } from "./types.js";
 
 const IDEMPOTENCY_KEY_PATTERN = /^[A-Za-z0-9_-]{8,128}$/;
@@ -48,7 +49,7 @@ export class AgentPreflightError extends Error {
 export class AgentInspectionError extends Error {
   readonly kind: AgentInspectionFailureKind;
 
-  constructor(readonly status: number, message: string) {
+  constructor(readonly status: number, message: string, readonly retryAfterSeconds?: number) {
     super(message);
     this.name = "AgentInspectionError";
     this.kind = status === 402
@@ -61,6 +62,12 @@ export class AgentInspectionError extends Error {
             ? "unavailable"
             : "rejected";
   }
+}
+
+function retryAfterSeconds(value: string | null): number | undefined {
+  if (value === null || !/^\d+$/u.test(value)) return undefined;
+  const seconds = Number(value);
+  return Number.isSafeInteger(seconds) && seconds > 0 && seconds <= 3_600 ? seconds : undefined;
 }
 
 export interface PaymentRequirementLike {
@@ -207,9 +214,12 @@ export class MicrovernAgentClient {
     });
     const body = await responseJson(response);
     if (!response.ok) {
-      throw new AgentInspectionError(response.status, responseErrorMessage(body, `MicroVern inspection failed with HTTP ${response.status}.`));
+      throw new AgentInspectionError(response.status, responseErrorMessage(body, `MicroVern inspection failed with HTTP ${response.status}.`), retryAfterSeconds(response.headers.get("retry-after")));
     }
     assertInspectionReport(body);
+    if (!verifyInspectionReportBinding(request, body)) {
+      throw new Error("MicroVern returned a report that is not bound to the exact inspection request.");
+    }
     const paymentResponse = response.headers.get("payment-response");
     if (paymentResponse === null) throw new Error("MicroVern returned a report without an x402 payment receipt.");
     const paymentReceipt = decodePaymentResponseHeader(paymentResponse);

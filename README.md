@@ -91,7 +91,7 @@ The publishable API contract is [docs/openapi.yaml](docs/openapi.yaml). Generate
 
 Requests are capped at 128 KiB before payment middleware, and repeated unpaid inspection attempts are rate-limited. MicroVern returns an `X-Request-Id` for support correlation and intentionally does not log raw transaction payloads. The in-memory idempotency cache is suitable for local/Testnet use. Set the secret `MICROVERN_POSTGRES_URL` to use the shared durable PostgreSQL store required for MainNet.
 
-## Agent-safe inspection client
+## Agent integration kit
 
 [`src/agent-client.ts`](src/agent-client.ts) provides a reusable TypeScript
 client for an agent that has its own approved `ClientAvmSigner`. It never
@@ -129,7 +129,11 @@ Use the same `idempotencyKey` only to retry the same request after a timeout.
 The service rejects a key that is bound to different transaction data or policy.
 `AgentInspectionError.kind` distinguishes a changed payment requirement,
 in-progress inspection, throttling, service unavailability, and a rejected
-request so an agent can recover without guessing from error text.
+request so an agent can recover without guessing from error text. The client
+also rejects a returned report unless its request hash and checksum bind it to
+the exact request. See the [agent integration kit](docs/agent-integration.md)
+for a no-secret runner, no-payment preflight, bounded recovery rules, and
+receipt handling.
 
 ## Local verification coverage
 
