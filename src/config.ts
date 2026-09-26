@@ -27,6 +27,8 @@ export interface PaymentConfig {
   readonly usdcDecimals: typeof USDC_DECIMALS;
   /** Optional until the service has a public HTTPS-hosted icon. */
   readonly iconUrl?: string;
+  /** Canonical public HTTPS origin used in Bazaar's discoverable resource URL. */
+  readonly publicBaseUrl?: string;
 }
 
 function requiredPrice(value: string): string {
@@ -44,6 +46,26 @@ function optionalHttpsUrl(value: string | undefined, name: string): string | und
     return parsed.toString();
   } catch {
     throw new Error(`${name} must be a valid HTTPS URL.`);
+  }
+}
+
+function optionalHttpsOrigin(value: string | undefined, name: string): string | undefined {
+  if (value === undefined || value.trim().length === 0) return undefined;
+  try {
+    const parsed = new URL(value.trim());
+    if (
+      parsed.protocol !== "https:"
+      || parsed.username.length !== 0
+      || parsed.password.length !== 0
+      || parsed.pathname !== "/"
+      || parsed.search.length !== 0
+      || parsed.hash.length !== 0
+    ) {
+      throw new Error();
+    }
+    return parsed.origin;
+  } catch {
+    throw new Error(`${name} must be a valid HTTPS origin without a path, query, fragment, or credentials.`);
   }
 }
 
@@ -87,6 +109,7 @@ export function loadPaymentConfig(environment: NodeJS.ProcessEnv = process.env):
     throw new Error("FACILITATOR_URL must be a valid HTTPS URL.");
   }
   const iconUrl = optionalHttpsUrl(environment.MICROVERN_ICON_URL, "MICROVERN_ICON_URL");
+  const publicBaseUrl = optionalHttpsOrigin(environment.MICROVERN_PUBLIC_BASE_URL, "MICROVERN_PUBLIC_BASE_URL");
 
   return {
     network,
@@ -102,6 +125,7 @@ export function loadPaymentConfig(environment: NodeJS.ProcessEnv = process.env):
     usdcAssetId: network === "algorand-mainnet" ? USDC_MAINNET_ASA_ID : USDC_TESTNET_ASA_ID,
     usdcDecimals: USDC_DECIMALS,
     ...(iconUrl === undefined ? {} : { iconUrl }),
+    ...(publicBaseUrl === undefined ? {} : { publicBaseUrl }),
   };
 }
 

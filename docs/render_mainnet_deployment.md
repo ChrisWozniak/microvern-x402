@@ -23,14 +23,15 @@ The database blocks public connections. Render injects its internal, credential-
 3. Confirm Render proposes exactly the two resources above. The Testnet service must not appear in the proposed changes.
 4. At Render's prompts, provide:
    - `AVM_ADDRESS`: the public MainNet receiver address from the previous section;
-   - `MICROVERN_ICON_URL`: the actual public HTTPS icon URL.
+   - `MICROVERN_ICON_URL`: the actual public HTTPS icon URL;
+   - `MICROVERN_PUBLIC_BASE_URL`: `https://microvern-x402-mainnet.onrender.com`.
 5. Review the paid compute plans and billing impact, then create the Blueprint. Leave auto-deploy disabled until the preflight checks are complete.
 
 ## Preflight after deployment
 
 1. Open the new service URL and verify `GET /healthz` returns `200`.
 2. Verify `GET /readyz` returns `200` and reports `algorand-mainnet`.
-3. Request `POST /v1/inspect-transaction` without a payment proof. Confirm `402 Payment Required` advertises MainNet USDC ASA `31566704`, the MainNet recipient, and `x402-global-challenge` in the payment metadata.
+3. Request `POST /v1/inspect-transaction` without a payment proof. Confirm `402 Payment Required` advertises MainNet USDC ASA `31566704`, the MainNet recipient, `x402-global-challenge`, and the canonical `https://microvern-x402-mainnet.onrender.com/v1/inspect-transaction` resource URL.
 4. Check the Render logs for successful startup. The service creates the `microvern_idempotency` table automatically. Do not log, copy, or commit the database URL.
 
 Only after these checks and a separate explicit approval should a capped MainNet inspection payment be made.

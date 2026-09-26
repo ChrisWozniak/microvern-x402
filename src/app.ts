@@ -234,6 +234,9 @@ function addInspectionGuards(
 function protectedRoutes(paymentConfig: PaymentConfig) {
   return {
     "POST /v1/inspect-transaction": {
+      ...(paymentConfig.publicBaseUrl === undefined
+        ? {}
+        : { resource: new URL("/v1/inspect-transaction", paymentConfig.publicBaseUrl).toString() }),
       accepts: {
         scheme: "exact",
         network: paymentConfig.caip2,

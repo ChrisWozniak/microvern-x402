@@ -21,6 +21,10 @@ services:
         sync: false
       - key: MICROVERN_ICON_URL
         sync: false
+      # Render terminates TLS before Node. Keep Bazaar's advertised resource
+      # URL canonical and publicly callable instead of inheriting internal HTTP.
+      - key: MICROVERN_PUBLIC_BASE_URL
+        sync: false
       - key: MICROVERN_POSTGRES_URL
         fromDatabase:
           name: microvern-x402-mainnet-db

@@ -71,7 +71,11 @@ describe("MicroVern Stage 1 API", () => {
   });
 
   it("loads a validated Testnet USDC payment configuration", () => {
-    const config = loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_ICON_URL: "https://microvern.example/icon.svg" });
+    const config = loadTestnetPaymentConfig({
+      AVM_ADDRESS: receiver.addr.toString(),
+      MICROVERN_ICON_URL: "https://microvern.example/icon.svg",
+      MICROVERN_PUBLIC_BASE_URL: "https://microvern.example",
+    });
     expect(config).toMatchObject({
       network: "algorand-testnet",
       caip2: GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2,
@@ -81,6 +85,7 @@ describe("MicroVern Stage 1 API", () => {
       usdcAssetId: "10458941",
       usdcDecimals: 6,
       iconUrl: "https://microvern.example/icon.svg",
+      publicBaseUrl: "https://microvern.example",
     });
   });
 
@@ -155,10 +160,16 @@ describe("MicroVern Stage 1 API", () => {
     expect(() => loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), FACILITATOR_URL: "http://example.test" })).toThrow("FACILITATOR_URL");
     expect(() => loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_PRICE_USD: "free" })).toThrow("MICROVERN_PRICE_USD");
     expect(() => loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_ICON_URL: "http://example.test/icon.svg" })).toThrow("MICROVERN_ICON_URL");
+    expect(() => loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_PUBLIC_BASE_URL: "http://example.test" })).toThrow("MICROVERN_PUBLIC_BASE_URL");
+    expect(() => loadTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_PUBLIC_BASE_URL: "https://example.test/not-an-origin" })).toThrow("MICROVERN_PUBLIC_BASE_URL");
   });
 
   it("declares Bazaar discovery metadata with the challenge tag", async () => {
-    const config = requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString(), MICROVERN_ICON_URL: "https://microvern.example/icon.svg" });
+    const config = requireTestnetPaymentConfig({
+      AVM_ADDRESS: receiver.addr.toString(),
+      MICROVERN_ICON_URL: "https://microvern.example/icon.svg",
+      MICROVERN_PUBLIC_BASE_URL: "https://microvern.example",
+    });
     const service = createPaymentProtectedService(config, supportedTestnetFacilitator());
     await service.initialize();
     const response = await service.app.request(requestFor(algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams })));
@@ -167,6 +178,7 @@ describe("MicroVern Stage 1 API", () => {
     const required = JSON.parse(Buffer.from(response.headers.get("payment-required")!, "base64").toString("utf8"));
     expect(required.accepts[0].extra).toMatchObject({ asset: "10458941", tag: "x402-global-challenge" });
     expect(required.resource).toMatchObject({
+      url: "https://microvern.example/v1/inspect-transaction",
       description: expect.stringContaining("unsigned Algorand transaction group"),
       serviceName: "MicroVern",
       tags: ["algorand", "transaction-safety", "x402-global-challenge"],

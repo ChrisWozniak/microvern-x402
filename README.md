@@ -83,7 +83,7 @@ Before any MainNet deployment, also use an always-on production service, a paid 
 
 The paid route declares x402 Bazaar metadata: its JSON request/response schemas, an unsigned-Testnet input example, `MicroVern` as the service name, and the `algorand`, `transaction-safety`, and `x402-global-challenge` tags. The resource server registers the Bazaar extension so its 402 response is enriched with the actual `POST` method.
 
-Set `MICROVERN_ICON_URL` to the real absolute HTTPS URL of MicroVern's public icon before public deployment. It is intentionally omitted during local development; publishing a placeholder or someone else's icon would make the discovery listing misleading. The first public paid request is the point at which a facilitator can catalog the declaration.
+Set `MICROVERN_ICON_URL` to the real absolute HTTPS URL of MicroVern's public icon before public deployment. It is intentionally omitted during local development; publishing a placeholder or someone else's icon would make the discovery listing misleading. When deployed behind Render's TLS proxy, also set `MICROVERN_PUBLIC_BASE_URL` to the service's canonical HTTPS origin (for example, `https://microvern-x402-mainnet.onrender.com`). This ensures the Bazaar declaration advertises a publicly callable HTTPS resource rather than Render's internal HTTP request URL. The first public paid request is the point at which a facilitator can catalog the declaration.
 
 ## API contract and safe retries
 
