@@ -136,6 +136,13 @@ function validIdempotencyKey(value: string): boolean {
   return /^[A-Za-z0-9_-]{8,128}$/.test(value);
 }
 
+function reportIdFromBody(value: unknown): string | undefined {
+  if (typeof value !== "object" || value === null || !("requestHash" in value) || typeof value.requestHash !== "string") {
+    return undefined;
+  }
+  return /^[a-f0-9]{64}$/.test(value.requestHash) ? value.requestHash : undefined;
+}
+
 function bodyLengthWithinLimit(c: Context): boolean {
   const header = c.req.header("content-length");
   return header === undefined || (Number.isSafeInteger(Number(header)) && Number(header) <= MAX_REQUEST_BODY_BYTES);
@@ -204,6 +211,8 @@ function addInspectionGuards(
     const acquisition = await idempotencyStore.acquire(key, requestHash, IDEMPOTENCY_TTL_MS);
     if (acquisition.state === "completed") {
       c.header("X-Idempotent-Replay", "true");
+      const reportId = reportIdFromBody(acquisition.response.body);
+      if (reportId !== undefined) c.header("X-MicroVern-Report-Id", reportId);
       if (acquisition.response.paymentResponse !== null) c.header("Payment-Response", acquisition.response.paymentResponse);
       return c.json(acquisition.response.body, acquisition.response.status);
     }
@@ -326,7 +335,9 @@ function addRoutes(
   app.post("/v1/inspect-transaction", async (c) => {
     try {
       const request = parseInspectionRequest(await readRequestJson(c));
-      return c.json(inspectUnsignedTransaction(request.unsignedTransactionGroup, request.network, request.policy));
+      const report = inspectUnsignedTransaction(request.unsignedTransactionGroup, request.network, request.policy);
+      c.header("X-MicroVern-Report-Id", report.requestHash);
+      return c.json(report);
     } catch (error) {
       if (error instanceof ValidationError) return c.json({ error: error.message }, 400);
       return c.json({ error: "Internal analysis error." }, 500);
@@ -339,7 +350,7 @@ function addBrowserReviewCors(app: Hono): void {
     origin: MICROVERN_REVIEW_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
     allowHeaders: ["Content-Type", "Idempotency-Key", "X-Request-Id", "Payment-Signature", "X-Payment"],
-    exposeHeaders: ["Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-Request-Id"],
+    exposeHeaders: ["Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-MicroVern-Report-Id", "X-Request-Id"],
     maxAge: 86_400,
   }));
 }

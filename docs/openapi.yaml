@@ -77,6 +77,9 @@ paths:
               schema: { type: string }
             X-Idempotent-Replay:
               schema: { type: string, enum: ['true'] }
+            X-MicroVern-Report-Id:
+              schema: { type: string, pattern: '^[a-f0-9]{64}$' }
+              description: Stable report ID equal to the report requestHash. It is not a retrieval token and cannot be used to access a report.
           content:
             application/json:
               schema:

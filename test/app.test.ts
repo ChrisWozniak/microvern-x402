@@ -68,6 +68,7 @@ describe("MicroVern Stage 1 API", () => {
     expect(response.status).toBe(204);
     expect(response.headers.get("access-control-allow-origin")).toBe("https://chriswozniak.github.io");
     expect(response.headers.get("access-control-allow-headers")).toContain("Idempotency-Key");
+    expect(response.headers.get("access-control-expose-headers")).toContain("X-MicroVern-Report-Id");
   });
 
   it("loads a validated Testnet USDC payment configuration", () => {
@@ -290,7 +291,10 @@ describe("MicroVern Stage 1 API", () => {
     expect(first.status).toBe(200);
     expect(second.status).toBe(200);
     expect(second.headers.get("x-idempotent-replay")).toBe("true");
-    expect(await second.json()).toEqual(await first.json());
+    const firstReport = await first.json();
+    expect(first.headers.get("x-microvern-report-id")).toBe(firstReport.requestHash);
+    expect(second.headers.get("x-microvern-report-id")).toBe(firstReport.requestHash);
+    expect(await second.json()).toEqual(firstReport);
   });
 
   it("rejects an idempotency key reused for different unsigned transaction data", async () => {
