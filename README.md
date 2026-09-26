@@ -4,7 +4,7 @@
 
 MicroVern explains unsigned Algorand transactions before signing. It is a deterministic, best-effort decision-support API: it does not custody funds, accept wallet secrets, submit customer transactions, or guarantee safety.
 
-The current scope, MainNet release gates, and prioritized future iterations are in the [Product Requirements Document](docs/PRD.md).
+The current scope, live-release record, and prioritized future iterations are in the [Product Requirements Document](docs/PRD.md).
 
 ## Why the name MicroVern
 
@@ -16,7 +16,7 @@ sign. Clarity before commitment.** This is a decision-support aid, not a
 guarantee that a transaction is safe. See the
 [Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
-## Current milestone: Testnet x402-protected analysis, with MainNet preflight safeguards
+## Current milestone: live MainNet and TestNet inspection service
 
 The local API accepts a base64 encoding of one or more concatenated unsigned Algorand transactions, each encoded by `algosdk.encodeUnsignedTransaction`. Multi-transaction inputs must have one shared Algorand group ID. It explains transfers, asset opt-ins/out, close-outs, clawbacks, asset administration, app calls, rekeys, and policy violations; unfamiliar behavior is flagged rather than treated as safe.
 
@@ -33,7 +33,10 @@ For a public Testnet deployment on Render Free, use [the Render deployment guide
 
 The GitHub Pages-ready landing page and original MicroVern icon live in [`docs/index.html`](docs/index.html) and [`docs/assets/microvern-icon.svg`](docs/assets/microvern-icon.svg). The page includes a browser review console: it builds a bounded policy, submits the free structural preflight, discloses the exact x402 quote without signing or sending a payment, and displays reports with risk-first findings, outgoing totals, recipients, fees, policy outcomes, a plain-language decision guide, and on-demand technical detail. Its local receipt verifier recomputes the request hash and report checksum in the browser; it sends neither the report nor the original request to a third party. The dedicated [report-verification page](docs/verify.html) makes those two checks explicit: it distinguishes an intact report, a different original request, and modified report content, and it states that this is not wallet-signed approval. The [intent-check page](docs/intent.html) compares a user's declared recipients, asset IDs, ALGO/USDC limits, network, and expiry against a completed report, failing closed when it cannot verify a declared condition. The [private-history page](docs/history.html) keeps a sanitized audit copy only in the current browser, indexed by the report `requestHash`; it never retains the original unsigned transaction group and exposes no public history endpoint. The companion [shared-review page](docs/review.html) creates readable capability links for reports and includes the same decision guide. By default, a link contains no original unsigned group; a sender must explicitly choose to include that request before the recipient can verify the report-to-request binding locally. The URL fragment is not uploaded to MicroVern or GitHub Pages. A paid report is deliberately obtained by a compatible wallet or agent; the page never asks for a seed phrase, private key, or wallet custody. After these files are pushed, enable GitHub Pages in the repository: **Settings** → **Pages** → **Deploy from a branch** → `main` → `/docs`. The expected icon URL is `https://chriswozniak.github.io/microvern-x402/assets/microvern-icon.svg`; confirm it loads publicly before entering it as `MICROVERN_ICON_URL` in the MainNet Blueprint.
 
-After the paid MainNet service is deployed, run the no-payment preflight:
+The paid MainNet service is live at
+[`https://microvern-x402-mainnet.onrender.com`](https://microvern-x402-mainnet.onrender.com).
+Run the no-payment preflight after a MainNet configuration or deployment
+change:
 
 ```powershell
 $env:MICROVERN_URL = "https://<mainnet-service>.onrender.com"
@@ -51,7 +54,7 @@ Public routes:
 
 Payment-protected route:
 
-- `POST /v1/inspect-transaction` — x402 v2, Testnet USDC, `$0.01`
+- `POST /v1/inspect-transaction` — x402 v2, configured-network USDC, `$0.01`
 
 ## Verified Testnet payment proof
 
@@ -71,19 +74,28 @@ Example request body:
 
 Testnet payment configuration is loaded from `AVM_ADDRESS`, `FACILITATOR_URL`, and `MICROVERN_PRICE_USD`; `MICROVERN_PAYMENT_NETWORK` defaults to `testnet`. Copy `.env.example` to `.env` to use the funded Testnet receiver. Startup fails closed when `AVM_ADDRESS` is absent or invalid, or when the facilitator does not advertise the configured network's `exact` support. `GET /healthz` is intentionally independent of the facilitator; use `GET /readyz` for deployment readiness.
 
-## MainNet preflight status
+## Verified MainNet readiness and payment proof
 
 MicroVern recognizes `MICROVERN_PAYMENT_NETWORK=mainnet` and uses the hosted facilitator's verified full MainNet CAIP-2 identifier and MainNet USDC ASA `31566704`. Selecting it also requires the exact explicit confirmation `MICROVERN_MAINNET_CONFIRMATION=ENABLE_MAINNET_PAYMENTS`; this prevents a receiver-address configuration change from accidentally exposing a real-money endpoint.
 
 MainNet startup requires `MICROVERN_POSTGRES_URL`, a secret PostgreSQL connection URL. When configured, MicroVern creates a small `microvern_idempotency` table and atomically reserves each paid `Idempotency-Key` before payment middleware runs. Each key is bound to a privacy-preserving SHA-256 request hash of the canonical unsigned transaction data and policy; reusing it with different data returns `409` before payment. Each report returns that `requestHash` and a `reportChecksum`, allowing an agent to retain and verify the exact reviewed input without MicroVern storing the raw unsigned group. The store keeps only the completed response and payment receipt—not the submitted unsigned transaction group—and safely replays a completed report for 10 minutes across restarts or multiple instances. A concurrent duplicate receives `409` with `Retry-After: 2` before payment processing.
 
-Before any MainNet deployment, also use an always-on production service, a paid durable Postgres instance, a MainNet USDC-opted-in receiver, a real HTTPS icon, and an explicitly approved small MainNet payment. The existing Render Free Testnet service remains Testnet-only.
+MainNet is deployed with a paid Render web service and durable PostgreSQL,
+a dedicated USDC-opted-in receiver, a public HTTPS icon, and explicit MainNet
+enablement. A no-payment public preflight has returned the expected MainNet
+`402` requirements. One intentionally capped `$0.01` USDC MainNet inspection
+has also settled: [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA)
+· [GoPlausible receipt](https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA).
+
+The Render Free TestNet service remains TestNet-only. Any future MainNet
+payment remains an explicit, capped operational decision; it is never made by
+the preflight command.
 
 ## Bazaar discovery metadata
 
 The paid route declares x402 Bazaar metadata: its JSON request/response schemas, an unsigned-Testnet input example, `MicroVern` as the service name, and the `algorand`, `transaction-safety`, and `x402-global-challenge` tags. The resource server registers the Bazaar extension so its 402 response is enriched with the actual `POST` method.
 
-Set `MICROVERN_ICON_URL` to the real absolute HTTPS URL of MicroVern's public icon before public deployment. It is intentionally omitted during local development; publishing a placeholder or someone else's icon would make the discovery listing misleading. When deployed behind Render's TLS proxy, also set `MICROVERN_PUBLIC_BASE_URL` to the service's canonical HTTPS origin (for example, `https://microvern-x402-mainnet.onrender.com`). This ensures the Bazaar declaration advertises a publicly callable HTTPS resource rather than Render's internal HTTP request URL. The first public paid request is the point at which a facilitator can catalog the declaration.
+Set `MICROVERN_ICON_URL` to the real absolute HTTPS URL of MicroVern's public icon before public deployment. It is intentionally omitted during local development; publishing a placeholder or someone else's icon would make the discovery listing misleading. When deployed behind Render's TLS proxy, also set `MICROVERN_PUBLIC_BASE_URL` to the service's canonical HTTPS origin (for example, `https://microvern-x402-mainnet.onrender.com`). This ensures the Bazaar declaration advertises a publicly callable HTTPS resource rather than Render's internal HTTP request URL. The declaration makes the service eligible for facilitator cataloging; it does not guarantee catalog indexing. As of the latest recorded check, Bazaar search has not listed MicroVern on either network. See the [submission evidence](docs/hackathon_submission_evidence.md) for the current external-indexing status.
 
 ## API contract and safe retries
 
@@ -140,9 +152,9 @@ receiver requirements.
 
 ## Local verification coverage
 
-`npm test` currently runs 49 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; browser-local receipt verification against the server binding format; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, and typed recovery errors; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 69 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; browser-local receipt verification against the server binding format; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
-These are local, mocked-facilitator tests except for the Testnet settlement proof above. They do not substitute for the remaining public HTTPS, durable-idempotency, Bazaar-catalog, or deliberate MainNet smoke tests.
+These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 
 ## Testnet paid-inspection client
 

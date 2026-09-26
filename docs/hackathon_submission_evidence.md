@@ -4,6 +4,11 @@
 and already-settled payment evidence. No payment, signing, or broadcast was
 performed while collecting it.
 
+**Submission readiness:** the public demo, MainNet and TestNet endpoints,
+no-spend MainNet quote, and settled payment proofs are recorded below. Bazaar
+catalog indexing remains an external pending item and is not represented as
+complete.
+
 ## Public demo and service endpoints
 
 | Item | Public link | Verified result |

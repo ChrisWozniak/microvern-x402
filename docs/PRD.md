@@ -1,8 +1,8 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.6
-**Date:** 2026-09-25
-**Status:** Living product plan
+**Version:** 1.7
+**Date:** 2026-09-26
+**Status:** Living product plan; MainNet release record reconciled
 
 ## Product summary
 
@@ -111,34 +111,36 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 49 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, the public review console's browser-access policy, and agent payment trust boundaries. |
+| Automated coverage | Delivered | `npm test` runs 69 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, the public review console's browser-access policy, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
-| Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA`](https://lora.algokit.io/testnet/transaction/PQIBZGIFEUQVZX4YGYQCJQJO7PDN4DBYFHLJXOGN43IE5NEX7VQA). |
-| MainNet deployment foundation | Delivered in code | Explicit guard, durable idempotency, separate Render Blueprint, and no-payment preflight command. |
+| Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
+| MainNet deployment | Delivered | Paid Render compute, durable PostgreSQL, explicit enablement guard, public HTTPS service, and no-payment preflight are live at `https://microvern-x402-mainnet.onrender.com`. |
+| Real paid MainNet proof | Delivered | One intentionally capped `$0.01` USDC inspection settled: [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) · [GoPlausible receipt](https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA). |
 | Public landing page | Delivered | [GitHub Pages](https://chriswozniak.github.io/microvern-x402/) publishes the product explanation and original icon over HTTPS. |
-| Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, free structural preflight, policy builder, x402 quote disclosure, risk-first report viewer, and local receipt verification. It does not request wallet secrets or sign transactions. |
-| Bazaar discovery | Pending external indexing | TestNet discovery has not listed the service; that does not invalidate the paid endpoint. |
+| Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, free structural preflight, policy builder, saved browser-local safeguards, intent check, private local history, x402 quote disclosure, risk-first report viewer, sharing, and local report verification. It does not request wallet secrets or sign transactions. |
+| Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but read-only MainNet and TestNet searches returned zero MicroVern results on 2026-09-26. That does not invalidate the paid endpoint. |
 
-## MainNet release gates
+## MainNet release record
 
-The next milestone is a deliberately small MainNet launch, not a feature
-expansion. Complete the following gates in order.
+The deliberate MainNet launch gates below have been reconciled with the live
+deployment and settled proof. Future changes remain subject to the same
+explicit approval and no-secret boundary.
 
 | Gate | Status | Completion criterion |
 | --- | --- | --- |
 | Enable GitHub Pages | Complete | The public landing page and icon are available over HTTPS at `https://chriswozniak.github.io/microvern-x402/`. |
-| Provision MainNet compute and PostgreSQL | Pending | The paid Render web service and private database are created from `render.mainnet.yaml`. |
-| Configure the MainNet receiver | Pending | A dedicated receiver is funded, opted into MainNet USDC, and set as `AVM_ADDRESS`. |
-| Configure public service metadata | Pending | `MICROVERN_ICON_URL` points to the published icon. |
-| Run no-payment preflight | Pending | `npm run verify:mainnet-preflight` passes against public HTTPS; it receives the expected 402 and makes no payment. |
-| Authorize and make one capped MainNet payment | Pending user approval | An intentional, low-value USDC inspection succeeds and its transaction is recorded. |
-| Verify discovery and submission evidence | Pending | Bazaar/leaderboard visibility is checked and public endpoint, proof, and documentation are ready. |
+| Provision MainNet compute and PostgreSQL | Complete | The paid Render web service and private database are live from `render.mainnet.yaml`. |
+| Configure the MainNet receiver | Complete | A dedicated receiver is funded, opted into MainNet USDC, and configured as `AVM_ADDRESS`. |
+| Configure public service metadata | Complete | `MICROVERN_ICON_URL` points to the published MicroVern icon, and the service declares its public HTTPS base URL. |
+| Run no-payment preflight | Complete | Public HTTPS returned the expected MainNet `402` quote without payment. |
+| Authorize and make one capped MainNet payment | Complete | One intentional `$0.01` USDC inspection settled; the transaction and facilitator receipt are public. |
+| Verify discovery and submission evidence | In progress: external indexing pending | Public endpoint, quote, settled proof, receipt, demo, and evidence record are ready. Bazaar indexing has been checked but is not yet listed. |
 | Complete challenge submission | Pending | Project details, paid-use evidence, and the public repository are submitted through the challenge process. |
 
-No MainNet payment or deployment should occur without explicit user approval.
-TestNet validates implementation; it does not satisfy a MainNet submission by
-itself.
+No future MainNet payment or production configuration change should occur
+without explicit user approval. TestNet validates implementation; it does not
+substitute for the recorded MainNet deployment and paid proof.
 
 ## Prioritized post-release iterations
 
@@ -178,9 +180,9 @@ requirements, in-progress inspections, throttling, unavailability, and
 rejections. It requires a caller-supplied approved signer and never accepts a
 key as client configuration.
 
-**Remaining requirements:** add an executable integration example backed by a
-dedicated agent wallet after MainNet USDC is available, and document the
-operational handling of throttled or unavailable responses.
+**Remaining requirements:** run and document a first live integration from a
+dedicated agent wallet, including the operational handling of throttled or
+unavailable responses.
 
 **Acceptance:** an agent pays at most once for one logical inspection, can
 recover a completed report after a network interruption, and receives the
@@ -281,8 +283,10 @@ what the caller receives. The public page is
 
 ## Source documents
 
-- [README](../README.md) — local setup, endpoint use, TestNet proof, and
+- [README](../README.md) — local setup, endpoint use, payment proofs, and
   operational commands.
+- [Hackathon submission evidence](hackathon_submission_evidence.md) — live
+  endpoint checks, settled payment proofs, and Bazaar-indexing status.
 - [OpenAPI contract](openapi.yaml) — public endpoint and response contract.
 - [Technical research](x402_technical_research.md) — x402 findings and
   post-release research context.
