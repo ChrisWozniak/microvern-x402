@@ -11,6 +11,15 @@ export interface InspectionPolicy {
   allowCloseOut?: boolean;
   allowUnknownApps?: boolean;
   allowedApplicationIds?: number[];
+  /** An explicit ASA allowlist. An empty array permits no ASA actions. */
+  allowedAssetIds?: number[];
+  /** Blocks asset-administration and application-administration actions. */
+  prohibitAdminActions?: boolean;
+}
+
+export interface AppliedPolicyProfile {
+  id: string;
+  version: string;
 }
 
 export interface InspectionRequest {
@@ -18,6 +27,8 @@ export interface InspectionRequest {
   /** Base64 of concatenated unsigned Algorand transactions encoded with algosdk.encodeUnsignedTransaction. */
   unsignedTransactionGroup: string;
   policy?: InspectionPolicy;
+  /** A built-in, versioned profile selected instead of an ad-hoc policy. */
+  policyProfile?: string;
 }
 
 export interface Finding {
@@ -54,6 +65,7 @@ export interface InspectionAnalysis {
   actions: Action[];
   findings: Finding[];
   policyEvaluation: Record<string, "passed" | "failed" | "not-configured">;
+  policyProfile?: AppliedPolicyProfile;
   rulesetVersion: typeof RULESET_VERSION;
   disclaimer: string;
 }

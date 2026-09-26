@@ -14,6 +14,7 @@ function canonicalBase64(value) {
 function canonicalPolicy(policy) {
   if (policy === undefined || policy === null) return {};
   const appIds = policy.allowedApplicationIds === undefined ? undefined : [...new Set(policy.allowedApplicationIds)].sort((left, right) => left - right);
+  const assetIds = policy.allowedAssetIds === undefined ? undefined : [...new Set(policy.allowedAssetIds)].sort((left, right) => left - right);
   return {
     ...(policy.maxAlgoSend === undefined ? {} : { maxAlgoSend: policy.maxAlgoSend }),
     ...(policy.maxUsdcSend === undefined ? {} : { maxUsdcSend: policy.maxUsdcSend }),
@@ -21,6 +22,8 @@ function canonicalPolicy(policy) {
     ...(policy.allowCloseOut === undefined ? {} : { allowCloseOut: policy.allowCloseOut }),
     ...(policy.allowUnknownApps === undefined ? {} : { allowUnknownApps: policy.allowUnknownApps }),
     ...(appIds === undefined ? {} : { allowedApplicationIds: appIds }),
+    ...(assetIds === undefined ? {} : { allowedAssetIds: assetIds }),
+    ...(policy.prohibitAdminActions === undefined ? {} : { prohibitAdminActions: policy.prohibitAdminActions }),
   };
 }
 
@@ -39,6 +42,7 @@ function analysisFromReport(report) {
     actions: report.actions,
     findings: report.findings,
     policyEvaluation: report.policyEvaluation,
+    ...(report.policyProfile === undefined ? {} : { policyProfile: report.policyProfile }),
     rulesetVersion: report.rulesetVersion,
     disclaimer: report.disclaimer,
   };
@@ -49,6 +53,7 @@ export async function hashInspectionRequestInBrowser(request) {
     network: request.network,
     unsignedTransactionGroup: canonicalBase64(request.unsignedTransactionGroup),
     policy: canonicalPolicy(request.policy),
+    ...(request.policyProfile === undefined ? {} : { policyProfile: request.policyProfile }),
   });
 }
 

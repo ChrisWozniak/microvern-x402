@@ -23,6 +23,9 @@ function canonicalPolicy(policy: InspectionPolicy | undefined): CanonicalValue {
   const allowedApplicationIds = policy.allowedApplicationIds === undefined
     ? undefined
     : [...new Set(policy.allowedApplicationIds)].sort((left, right) => left - right);
+  const allowedAssetIds = policy.allowedAssetIds === undefined
+    ? undefined
+    : [...new Set(policy.allowedAssetIds)].sort((left, right) => left - right);
   return {
     ...(policy.maxAlgoSend === undefined ? {} : { maxAlgoSend: policy.maxAlgoSend }),
     ...(policy.maxUsdcSend === undefined ? {} : { maxUsdcSend: policy.maxUsdcSend }),
@@ -30,6 +33,8 @@ function canonicalPolicy(policy: InspectionPolicy | undefined): CanonicalValue {
     ...(policy.allowCloseOut === undefined ? {} : { allowCloseOut: policy.allowCloseOut }),
     ...(policy.allowUnknownApps === undefined ? {} : { allowUnknownApps: policy.allowUnknownApps }),
     ...(allowedApplicationIds === undefined ? {} : { allowedApplicationIds }),
+    ...(allowedAssetIds === undefined ? {} : { allowedAssetIds }),
+    ...(policy.prohibitAdminActions === undefined ? {} : { prohibitAdminActions: policy.prohibitAdminActions }),
   };
 }
 
@@ -42,6 +47,7 @@ export function hashInspectionRequest(request: InspectionRequest): string {
     network: request.network,
     unsignedTransactionGroup: Buffer.from(request.unsignedTransactionGroup, "base64").toString("base64"),
     policy: canonicalPolicy(request.policy),
+    ...(request.policyProfile === undefined ? {} : { policyProfile: request.policyProfile }),
   });
 }
 
@@ -63,6 +69,7 @@ export function verifyInspectionReportBinding(request: InspectionRequest, report
     actions: report.actions,
     findings: report.findings,
     policyEvaluation: report.policyEvaluation,
+    ...(report.policyProfile === undefined ? {} : { policyProfile: report.policyProfile }),
     rulesetVersion: report.rulesetVersion,
     disclaimer: report.disclaimer,
   };

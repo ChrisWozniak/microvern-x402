@@ -56,6 +56,20 @@ describe("MicroVern Stage 1 API", () => {
     expect((await capabilities.json()).payment).toEqual({ enabled: false, configured: false });
   });
 
+  it("resolves named policy profiles before analysis and returns their version", async () => {
+    const transaction = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams });
+    const group = Buffer.from(algosdk.encodeUnsignedTransaction(transaction)).toString("base64");
+    const response = await app.request("/v1/inspect-transaction", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ network: "algorand-testnet", unsignedTransactionGroup: group, policyProfile: "no-admin-actions-v1" }),
+    });
+    expect(response.status).toBe(200);
+    expect((await response.json()).policyProfile).toEqual({ id: "no-admin-actions-v1", version: "1" });
+    const capabilities = await (await app.request("/v1/capabilities")).json();
+    expect(capabilities.policyProfiles.map((profile: { id: string }) => profile.id)).toEqual(["strict-usdc-v1", "algo-only-v1", "no-admin-actions-v1"]);
+  });
+
   it("allows the public GitHub Pages review console to use documented browser headers", async () => {
     const response = await app.request("/v1/validate-transaction", {
       method: "OPTIONS",

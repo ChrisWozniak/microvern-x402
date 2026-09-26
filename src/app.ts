@@ -14,6 +14,7 @@ import { hashInspectionRequest } from "./binding.js";
 import { loadPaymentConfig, type PaymentConfig } from "./config.js";
 import { ValidationError } from "./errors.js";
 import { InMemoryIdempotencyStore, type IdempotencyStore } from "./idempotency.js";
+import { listPolicyProfiles, resolvePolicyProfile } from "./policy-profiles.js";
 import { parseInspectionRequest } from "./validation.js";
 import { RULESET_VERSION } from "./types.js";
 
@@ -55,8 +56,14 @@ const INSPECTION_REQUEST_SCHEMA = {
           type: "array",
           items: { type: "integer", minimum: 0 },
         },
+        allowedAssetIds: {
+          type: "array",
+          items: { type: "integer", minimum: 0 },
+        },
+        prohibitAdminActions: { type: "boolean" },
       },
     },
+    policyProfile: { type: "string", pattern: "^[a-z0-9-]{3,80}$" },
   },
 } as const;
 
@@ -82,6 +89,11 @@ const INSPECTION_RESPONSE_SCHEMA = {
     actions: { type: "array" },
     findings: { type: "array" },
     policyEvaluation: { type: "object" },
+    policyProfile: {
+      type: "object",
+      required: ["id", "version"],
+      properties: { id: { type: "string" }, version: { type: "string" } },
+    },
     rulesetVersion: { type: "string" },
     disclaimer: { type: "string" },
     requestHash: { type: "string", pattern: "^[a-f0-9]{64}$" },
@@ -305,6 +317,7 @@ function addRoutes(
     return c.json({
       rulesetVersion: RULESET_VERSION,
       supportedNetworks: ["algorand-mainnet", "algorand-testnet"],
+      policyProfiles: listPolicyProfiles(),
       input: "Base64 of one or more concatenated unsigned Algorand transactions encoded with algosdk.encodeUnsignedTransaction. Multi-transaction inputs must share one group ID.",
       payment: advertisedConfig === undefined
         ? { enabled: false, configured: false }
@@ -335,7 +348,14 @@ function addRoutes(
   app.post("/v1/inspect-transaction", async (c) => {
     try {
       const request = parseInspectionRequest(await readRequestJson(c));
-      const report = inspectUnsignedTransaction(request.unsignedTransactionGroup, request.network, request.policy);
+      const selectedProfile = request.policyProfile === undefined ? undefined : resolvePolicyProfile(request.policyProfile, request.network);
+      const report = inspectUnsignedTransaction(
+        request.unsignedTransactionGroup,
+        request.network,
+        selectedProfile?.policy ?? request.policy,
+        request,
+        selectedProfile?.profile,
+      );
       c.header("X-MicroVern-Report-Id", report.requestHash);
       return c.json(report);
     } catch (error) {

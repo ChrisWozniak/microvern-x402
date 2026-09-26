@@ -1,9 +1,10 @@
 import { ValidationError } from "./errors.js";
+import { validatePolicyProfile } from "./policy-profiles.js";
 import type { InspectionPolicy, InspectionRequest, Network } from "./types.js";
 
 const MAX_ENCODED_BYTES = 64 * 1024;
-const REQUEST_FIELDS = new Set(["network", "unsignedTransactionGroup", "policy"]);
-const POLICY_FIELDS = new Set(["maxAlgoSend", "maxUsdcSend", "allowRekey", "allowCloseOut", "allowUnknownApps", "allowedApplicationIds"]);
+const REQUEST_FIELDS = new Set(["network", "unsignedTransactionGroup", "policy", "policyProfile"]);
+const POLICY_FIELDS = new Set(["maxAlgoSend", "maxUsdcSend", "allowRekey", "allowCloseOut", "allowUnknownApps", "allowedApplicationIds", "allowedAssetIds", "prohibitAdminActions"]);
 
 function isNetwork(value: unknown): value is Network {
   return value === "algorand-mainnet" || value === "algorand-testnet";
@@ -33,6 +34,14 @@ export function parseInspectionRequest(value: unknown): InspectionRequest {
     throw new ValidationError("unsignedTransactionGroup is not valid base64.");
   }
 
+  if (candidate.policy !== undefined && candidate.policyProfile !== undefined) {
+    throw new ValidationError("Provide either policy or policyProfile, not both.");
+  }
+  if (candidate.policyProfile !== undefined) {
+    validatePolicyProfile(candidate.policyProfile, candidate.network);
+    return { network: candidate.network, unsignedTransactionGroup: candidate.unsignedTransactionGroup, policyProfile: candidate.policyProfile as string };
+  }
+
   if (candidate.policy !== undefined && (typeof candidate.policy !== "object" || candidate.policy === null || Array.isArray(candidate.policy))) {
     throw new ValidationError("policy must be an object when provided.");
   }
@@ -57,8 +66,13 @@ export function parseInspectionRequest(value: unknown): InspectionRequest {
       throw new ValidationError(`${key} must be a boolean.`);
     }
   }
-  if (policy.allowedApplicationIds !== undefined && (!Array.isArray(policy.allowedApplicationIds) || policy.allowedApplicationIds.some((id) => typeof id !== "number" || !Number.isSafeInteger(id) || id < 0))) {
-    throw new ValidationError("allowedApplicationIds must be an array of non-negative integer application IDs.");
+  for (const key of ["allowedApplicationIds", "allowedAssetIds"]) {
+    if (policy[key] !== undefined && (!Array.isArray(policy[key]) || policy[key].some((id) => typeof id !== "number" || !Number.isSafeInteger(id) || id < 0))) {
+      throw new ValidationError(`${key} must be an array of non-negative integer IDs.`);
+    }
+  }
+  if (policy.prohibitAdminActions !== undefined && typeof policy.prohibitAdminActions !== "boolean") {
+    throw new ValidationError("prohibitAdminActions must be a boolean.");
   }
 
   return {

@@ -2,11 +2,12 @@ import algosdk from "algosdk";
 import { decodeMulti } from "algorand-msgpack";
 import { bindInspectionReport } from "./binding.js";
 import { ValidationError } from "./errors.js";
-import { RULESET_VERSION, type Action, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type ReviewSummary, type Verdict } from "./types.js";
+import { RULESET_VERSION, type Action, type AppliedPolicyProfile, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type InspectionRequest, type ReviewSummary, type Verdict } from "./types.js";
 
 const MAINNET_USDC_ASSET_ID = 31_566_704;
 const TESTNET_USDC_ASSET_ID = 10_458_941;
 const MICROALGOS_PER_ALGO = 1_000_000;
+const ADMIN_ACTION_CODES = new Set(["ASSET_CLAWBACK", "ASSET_FREEZE", "ASSET_CONFIGURATION", "ASSET_CREATE", "APPLICATION_ADMIN_ACTION"]);
 
 const DEFAULT_POLICY: Required<Pick<InspectionPolicy, "allowRekey" | "allowCloseOut" | "allowUnknownApps">> = {
   allowRekey: false,
@@ -81,7 +82,13 @@ function decodeUnsignedGroup(encoded: string): algosdk.Transaction[] {
   }
 }
 
-export function inspectUnsignedTransaction(encoded: string, network: "algorand-mainnet" | "algorand-testnet", policy: InspectionPolicy = {}): InspectionReport {
+export function inspectUnsignedTransaction(
+  encoded: string,
+  network: "algorand-mainnet" | "algorand-testnet",
+  policy: InspectionPolicy = {},
+  bindingRequest: InspectionRequest = { network, unsignedTransactionGroup: encoded, policy },
+  policyProfile?: AppliedPolicyProfile,
+): InspectionReport {
   const transactions = decodeUnsignedGroup(encoded);
 
   const effectivePolicy = { ...DEFAULT_POLICY, ...policy };
@@ -93,6 +100,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
   let totalFee = 0n;
   const recipients = new Set<string>();
   const assetIds = new Set<number>();
+  const assetTransactionIndexes = new Map<number, number>();
 
   for (const [transactionIndex, txn] of transactions.entries()) {
     totalFee += txn.fee;
@@ -112,6 +120,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
       if (transfer === undefined) throw new ValidationError("Decoded asset transfer is missing asset-transfer fields.");
       const assetId = Number(transfer.assetIndex);
       assetIds.add(assetId);
+      assetTransactionIndexes.set(assetId, transactionIndex);
       const usdcId = network === "algorand-mainnet" ? MAINNET_USDC_ASSET_ID : TESTNET_USDC_ASSET_ID;
       if (assetId === usdcId) usdcSent += transfer.amount;
       const assetName = assetId === usdcId ? "USDC" : `asset ${assetId}`;
@@ -165,18 +174,31 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
 
   const algoLimitBreached = policy.maxAlgoSend !== undefined && algoSent > BigInt(Math.round(policy.maxAlgoSend * MICROALGOS_PER_ALGO));
   const usdcLimitBreached = policy.maxUsdcSend !== undefined && usdcSent > BigInt(Math.round(policy.maxUsdcSend * MICROALGOS_PER_ALGO));
+  const unapprovedAssetIds = policy.allowedAssetIds === undefined
+    ? []
+    : [...assetIds].filter((assetId) => !policy.allowedAssetIds!.includes(assetId));
   if (algoLimitBreached) pushFinding(findings, { code: "ALGO_LIMIT_EXCEEDED", severity: "high", transactionIndex: 0, message: `This group sends more than the ${policy.maxAlgoSend} ALGO policy limit.` });
   if (usdcLimitBreached) pushFinding(findings, { code: "USDC_LIMIT_EXCEEDED", severity: "high", transactionIndex: 0, message: `This group sends more than the ${policy.maxUsdcSend} USDC policy limit.` });
+  for (const assetId of unapprovedAssetIds) {
+    pushFinding(findings, { code: "ASSET_NOT_ALLOWLISTED", severity: "high", transactionIndex: assetTransactionIndexes.get(assetId) ?? 0, message: `Asset ${assetId} is not on the configured asset allowlist.` });
+  }
+  const prohibitedAdminAction = policy.prohibitAdminActions === true && findings.some((finding) => ADMIN_ACTION_CODES.has(finding.code));
+  if (prohibitedAdminAction) {
+    const action = findings.find((finding) => ADMIN_ACTION_CODES.has(finding.code));
+    pushFinding(findings, { code: "ADMIN_ACTION_PROHIBITED", severity: "high", transactionIndex: action?.transactionIndex ?? 0, message: "This group includes an administrative action prohibited by the selected policy." });
+  }
 
   addPolicy(policyEvaluation, "allowRekey", findings.some((finding) => finding.code === "REKEY_PRESENT") && !effectivePolicy.allowRekey, policy.allowRekey !== undefined);
   addPolicy(policyEvaluation, "allowCloseOut", findings.some((finding) => finding.code === "ALGO_CLOSE_OUT" || finding.code === "ASSET_CLOSE_OUT") && !effectivePolicy.allowCloseOut, policy.allowCloseOut !== undefined);
   addPolicy(policyEvaluation, "maxAlgoSend", algoLimitBreached, policy.maxAlgoSend !== undefined);
   addPolicy(policyEvaluation, "maxUsdcSend", usdcLimitBreached, policy.maxUsdcSend !== undefined);
   addPolicy(policyEvaluation, "allowUnknownApps", findings.some((finding) => finding.code === "UNKNOWN_APPLICATION") && !effectivePolicy.allowUnknownApps, policy.allowedApplicationIds !== undefined || policy.allowUnknownApps !== undefined);
+  addPolicy(policyEvaluation, "allowedAssetIds", unapprovedAssetIds.length > 0, policy.allowedAssetIds !== undefined);
+  addPolicy(policyEvaluation, "prohibitAdminActions", prohibitedAdminAction, policy.prohibitAdminActions !== undefined);
 
   const hasUnapprovedRekey = findings.some((finding) => finding.code === "REKEY_PRESENT") && !effectivePolicy.allowRekey;
   const hasUnapprovedCloseOut = findings.some((finding) => finding.code === "ALGO_CLOSE_OUT" || finding.code === "ASSET_CLOSE_OUT") && !effectivePolicy.allowCloseOut;
-  const hasBlocker = hasUnapprovedRekey || hasUnapprovedCloseOut || algoLimitBreached || usdcLimitBreached;
+  const hasBlocker = hasUnapprovedRekey || hasUnapprovedCloseOut || algoLimitBreached || usdcLimitBreached || unapprovedAssetIds.length > 0 || prohibitedAdminAction;
   const verdict: Verdict = hasBlocker ? "block" : findings.length > 0 ? "review" : "allow";
   const riskScore = Math.min(100, findings.reduce((score, finding) => score + ({ low: 10, medium: 25, high: 50, critical: 80 }[finding.severity]), 0));
   const summary = verdict === "allow"
@@ -191,6 +213,17 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
     recipients: [...recipients].sort(),
     assetIds: [...assetIds].sort((left, right) => left - right),
   };
-  const analysis: InspectionAnalysis = { verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
-  return bindInspectionReport({ network, unsignedTransactionGroup: encoded, policy }, analysis);
+  const analysis: InspectionAnalysis = {
+    verdict,
+    riskScore,
+    summary,
+    reviewSummary,
+    actions,
+    findings,
+    policyEvaluation,
+    ...(policyProfile === undefined ? {} : { policyProfile }),
+    rulesetVersion: RULESET_VERSION,
+    disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice.",
+  };
+  return bindInspectionReport(bindingRequest, analysis);
 }

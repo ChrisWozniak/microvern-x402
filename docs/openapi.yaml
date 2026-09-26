@@ -23,6 +23,7 @@ paths:
   /v1/capabilities:
     get:
       summary: Discover supported inputs and payment configuration
+      description: Includes the built-in versioned policy profiles available to callers.
       responses:
         '200':
           description: Service capabilities.
@@ -130,6 +131,15 @@ components:
             allowedApplicationIds:
               type: array
               items: { type: integer, minimum: 0 }
+            allowedAssetIds:
+              type: array
+              description: Explicit ASA allowlist. An empty array permits no ASA actions.
+              items: { type: integer, minimum: 0 }
+            prohibitAdminActions: { type: boolean }
+        policyProfile:
+          type: string
+          enum: [strict-usdc-v1, algo-only-v1, no-admin-actions-v1]
+          description: Built-in, versioned profile. Provide this instead of an ad-hoc policy.
     InspectionReport:
       type: object
       required: [verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion, disclaimer, requestHash, reportChecksum]
@@ -179,6 +189,13 @@ components:
           additionalProperties:
             type: string
             enum: [passed, failed, not-configured]
+        policyProfile:
+          type: object
+          description: Present when the request selected a built-in versioned policy profile.
+          required: [id, version]
+          properties:
+            id: { type: string }
+            version: { type: string }
         rulesetVersion: { type: string }
         disclaimer: { type: string }
         requestHash:

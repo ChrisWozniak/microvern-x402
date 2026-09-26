@@ -169,9 +169,21 @@ and stable IDs—but never the original unsigned transaction group. See the
 no-payment preflight, bounded recovery rules, receipt handling, and callback
 receiver requirements.
 
+## Agent MCP interface
+
+[`src/mcp-server.ts`](src/mcp-server.ts) provides a local stdio MCP interface
+for agents: `validate_transaction`, `get_quote`, and `inspect_transaction`.
+Every call requires a named profile, explicit ALGO/USDC transaction caps, and
+an exact transaction-recipient allowlist. The paid tools additionally require
+caller-pinned x402 network, USDC ASA, receiver, and atomic spend cap. `inspect_transaction` returns only
+an approval-required quote unless the caller supplies an **externally created**
+payment proof; MicroVern never accepts a wallet key or seed phrase. See the
+[MCP integration guide](docs/mcp-integration.md) for connection setup, the
+three supported profiles, and the safe agent sequence.
+
 ## Local verification coverage
 
-`npm test` currently runs 79 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 89 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, and payment-proof boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 

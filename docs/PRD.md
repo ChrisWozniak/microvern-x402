@@ -111,7 +111,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 79 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
+| Automated coverage | Delivered | `npm test` runs 89 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof boundaries, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
@@ -119,6 +119,8 @@ payload.
 | Real paid MainNet proof | Delivered | One intentionally capped `$0.01` USDC inspection settled: [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) · [GoPlausible receipt](https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA). |
 | Public landing page | Delivered | [GitHub Pages](https://chriswozniak.github.io/microvern-x402/) publishes the product explanation and original icon over HTTPS. |
 | Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, a no-spend guided demo, free structural preflight, policy builder, saved browser-local safeguards, intent check, private local history, x402 quote disclosure, a visual decision snapshot, risk-first report viewer, sharing, and local report verification. It does not request wallet secrets or sign transactions. |
+| Versioned API policy profiles | Delivered | `strict-usdc-v1`, `algo-only-v1`, and `no-admin-actions-v1` resolve deterministically before payment. The selected ID/version is bound into each report. |
+| Agent MCP interface | Delivered | A local stdio MCP server exposes `validate_transaction`, `get_quote`, and `inspect_transaction` with mandatory profile, ALGO/USDC transaction caps, recipient allowlist, payment-cap, receiver, and network boundaries. It accepts no wallet secret. |
 | Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but read-only MainNet and TestNet searches returned zero MicroVern results on 2026-09-26. That does not invalidate the paid endpoint. |
 
 ## MainNet release record
@@ -211,16 +213,19 @@ privacy review.
 
 ### 4. Named, versioned policy profiles
 
-**Purpose:** let integrators apply their own review rules without forking the
+**Purpose:** let integrators apply documented review rules without forking the
 core analyzer.
 
-**Requirements:** define a small schema for allowlists, spend limits,
-prohibited fields, required warnings, and severity thresholds. Return the
-policy identifier and version with every result.
+**Delivered foundation:** `strict-usdc-v1`, `algo-only-v1`, and
+`no-admin-actions-v1` resolve to deterministic, network-aware policies before
+payment. They cover spend limits, ASA allowlists, rekey/close-out defaults, and
+administrative-action prohibition. The profile ID and version are included in
+the report and its request-hash/checksum binding. A profile cannot be mixed
+with an ad-hoc policy, and unknown IDs fail validation before payment.
 
 **Acceptance:** callers can select a documented profile; the same payload and
-policy version produce the same findings; invalid policies fail validation
-before payment.
+policy version produce the same findings; invalid or unknown profiles fail
+validation before payment. Delivered and covered by deterministic tests.
 
 **Dependency:** stable baseline findings and a backwards-compatible versioning
 policy.
@@ -228,15 +233,19 @@ policy.
 ### 5. MCP interface for agent clients
 
 **Purpose:** make inspection discoverable and convenient for agent workflows
-without replacing the HTTP API.
+without replacing the HTTP API or taking custody of a wallet.
 
-**Requirements:** expose a narrow, documented inspection tool; retain
-validation-before-payment; keep payment handling explicit; reject secret
-material.
+**Delivered foundation:** the local stdio MCP server exposes
+`validate_transaction`, `get_quote`, and `inspect_transaction`. It requires a
+known policy profile, explicit ALGO/USDC transaction caps, and exact recipient
+allowlist for every call. The paid steps additionally require a pinned Algorand CAIP-2 network, USDC ASA,
+receiver, and atomic payment cap. It returns an approval-required quote when
+no externally created payment proof is supplied and never accepts a seed phrase
+or private key.
 
-**Acceptance:** an MCP client can validate and request an inspection report
-through the same public contract, and examples include a visible payment cap or
-confirmation step.
+**Acceptance:** an MCP client can validate, quote, and request an inspection
+through the same public contract with visible spend and recipient boundaries.
+Delivered with deterministic boundary and binding tests.
 
 **Dependency:** hardened MainNet service behavior and a clear agent-payment UX.
 
