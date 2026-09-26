@@ -35,6 +35,7 @@
   </main>
   <footer class="footer">MicroVern never signs or broadcasts customer transactions. A report is decision support, not a guarantee of safety or financial advice.</footer>
   <script type="module">
+    import { createMicrovernDecisionGuide } from "./assets/microvern-decision-guide.js";
     import { verifyMicrovernReceipt } from "./assets/microvern-verification.js";
     import { createMicrovernShareLink, readMicrovernShareLink } from "./assets/microvern-share.js";
 
@@ -62,6 +63,7 @@
       const data = payload.report; if (!validReport(data)) throw new Error("This does not look like a complete MicroVern inspection report.");
       const root = $("report"); root.className = "report show"; root.replaceChildren();
       const verdict = document.createElement("div"); verdict.className = "verdict"; appendText(verdict, "span", data.verdict, `badge ${data.verdict}`); appendText(verdict, "strong", `Risk score: ${data.riskScore ?? "not supplied"} / 100`); root.append(verdict); appendText(root, "p", data.summary || "No summary was supplied.", "summary");
+      const guide = createMicrovernDecisionGuide(data); const decision = box(guide.title); appendText(decision, "p", guide.summary, "note"); decision.append(list(guide.steps, "No decision steps were supplied.", (item, step) => appendText(item, "span", step))); root.append(decision);
       const totals = box("At a glance"); const metrics = document.createElement("div"); metrics.className = "metrics"; const summary = data.reviewSummary || {}; [["Transactions", summary.transactionCount], ["Outgoing ALGO", summary.totalAlgoSent], ["Outgoing USDC", summary.totalUsdcSent], ["Network fees", summary.totalFeeAlgo === undefined ? undefined : `${summary.totalFeeAlgo} ALGO`]].forEach(([label, value]) => { const item = document.createElement("div"); appendText(item, "strong", String(value ?? "not supplied")); appendText(item, "span", label, "note"); metrics.append(item); }); totals.append(metrics); root.append(totals);
       const grid = document.createElement("div"); grid.className = "grid";
       const findings = box("What needs attention first"); findings.append(list(data.findings, "No findings were supplied.", (item, finding) => { appendText(item, "span", finding.severity || "low", `severity ${severity(finding.severity)}`); item.append(document.createTextNode(finding.message || "No message was supplied.")); }));
