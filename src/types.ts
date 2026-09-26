@@ -42,6 +42,8 @@ export interface ReviewSummary {
   totalUsdcSent: string;
   totalFeeAlgo: string;
   recipients: string[];
+  /** Algorand ASA IDs touched by asset-transfer actions, including opt-ins and opt-outs. */
+  assetIds: number[];
 }
 
 export interface InspectionAnalysis {

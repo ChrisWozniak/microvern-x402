@@ -136,7 +136,7 @@ components:
         summary: { type: string }
         reviewSummary:
           type: object
-          required: [transactionCount, totalAlgoSent, totalUsdcSent, totalFeeAlgo, recipients]
+          required: [transactionCount, totalAlgoSent, totalUsdcSent, totalFeeAlgo, recipients, assetIds]
           properties:
             transactionCount: { type: integer, minimum: 1 }
             totalAlgoSent: { type: string, description: Excludes any ALGO close-out remainder, which is separately flagged. }
@@ -145,6 +145,10 @@ components:
             recipients:
               type: array
               items: { type: string }
+            assetIds:
+              type: array
+              description: Algorand ASA IDs touched by asset-transfer actions, including opt-ins and opt-outs.
+              items: { type: integer, minimum: 0 }
         actions:
           type: array
           items:

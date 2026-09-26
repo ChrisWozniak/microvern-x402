@@ -234,6 +234,7 @@ describe("MicroVern Stage 1 API", () => {
       totalUsdcSent: "0",
       totalFeeAlgo: "0.001",
       recipients: [receiver.addr.toString()],
+      assetIds: [],
     });
     expect(report.requestHash).toMatch(/^[a-f0-9]{64}$/);
     expect(report.reportChecksum).toMatch(/^[a-f0-9]{64}$/);
@@ -341,6 +342,7 @@ describe("MicroVern Stage 1 API", () => {
     const report = await response.json();
     expect(report.verdict).toBe("block");
     expect(report.findings.map((finding: { code: string }) => finding.code)).toContain("USDC_LIMIT_EXCEEDED");
+    expect(report.reviewSummary.assetIds).toEqual([10_458_941]);
   });
 
   it("allows transfers exactly at configured ALGO and Testnet-USDC limits", async () => {

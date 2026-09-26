@@ -92,6 +92,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
   let usdcSent = 0n;
   let totalFee = 0n;
   const recipients = new Set<string>();
+  const assetIds = new Set<number>();
 
   for (const [transactionIndex, txn] of transactions.entries()) {
     totalFee += txn.fee;
@@ -110,6 +111,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
       const transfer = txn.assetTransfer;
       if (transfer === undefined) throw new ValidationError("Decoded asset transfer is missing asset-transfer fields.");
       const assetId = Number(transfer.assetIndex);
+      assetIds.add(assetId);
       const usdcId = network === "algorand-mainnet" ? MAINNET_USDC_ASSET_ID : TESTNET_USDC_ASSET_ID;
       if (assetId === usdcId) usdcSent += transfer.amount;
       const assetName = assetId === usdcId ? "USDC" : `asset ${assetId}`;
@@ -187,6 +189,7 @@ export function inspectUnsignedTransaction(encoded: string, network: "algorand-m
     totalUsdcSent: formatAmount(usdcSent),
     totalFeeAlgo: formatAmount(totalFee),
     recipients: [...recipients].sort(),
+    assetIds: [...assetIds].sort((left, right) => left - right),
   };
   const analysis: InspectionAnalysis = { verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion: RULESET_VERSION, disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice." };
   return bindInspectionReport({ network, unsignedTransactionGroup: encoded, policy }, analysis);
