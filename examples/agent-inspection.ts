@@ -4,6 +4,7 @@ import { pathToFileURL } from "node:url";
 import type { ClientAvmSigner } from "@x402/avm";
 import { createMicrovernAgentClient, type MicrovernAgentTrustPolicy } from "../src/agent-client.js";
 import { inspectWithSafeRecovery } from "../src/agent-integration.js";
+import { deliverAgentInspectionWebhook, type AgentWebhookDeliveryOptions } from "../src/agent-webhook.js";
 import type { InspectionRequest } from "../src/types.js";
 
 const MAINNET_TRUST_POLICY: MicrovernAgentTrustPolicy = {
@@ -43,6 +44,14 @@ async function loadApprovedSigner(): Promise<ClientAvmSigner> {
   return loaded.agentSigner;
 }
 
+function optionalWebhook(): AgentWebhookDeliveryOptions | undefined {
+  const url = process.env.MICROVERN_WEBHOOK_URL;
+  const secret = process.env.MICROVERN_WEBHOOK_SECRET;
+  if (url === undefined && secret === undefined) return undefined;
+  if (!url || !secret) throw new Error("Set both MICROVERN_WEBHOOK_URL and MICROVERN_WEBHOOK_SECRET, or neither.");
+  return { url, secret };
+}
+
 async function main(): Promise<void> {
   const request = await readInspectionRequest();
   const signer = await loadApprovedSigner();
@@ -59,6 +68,8 @@ async function main(): Promise<void> {
     maxAttempts: 2,
     ...(correlationId === undefined ? {} : { correlationId }),
   });
+  const webhook = optionalWebhook();
+  const webhookEvent = webhook === undefined ? undefined : await deliverAgentInspectionWebhook(result, webhook);
   console.log(JSON.stringify({
     verdict: result.report.verdict,
     requestHash: result.report.requestHash,
@@ -67,6 +78,8 @@ async function main(): Promise<void> {
     requestId: result.requestId,
     attempts,
     paymentTransactionId: result.paymentTransactionId,
+    webhookDelivered: webhookEvent !== undefined,
+    webhookReportId: webhookEvent?.reportId,
     receiptUrl: `https://facilitator.goplausible.xyz/api/receipt/${result.paymentTransactionId}`,
     explorerUrl: `https://allo.info/tx/${result.paymentTransactionId}`,
   }, null, 2));

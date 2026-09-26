@@ -11,6 +11,9 @@ The kit consists of:
   validates before payment and verifies the returned report binding.
 - [`src/agent-integration.ts`](../src/agent-integration.ts): bounded recovery
   helper that reuses one idempotency key only when doing so is safe.
+- [`src/agent-webhook.ts`](../src/agent-webhook.ts): optional HTTPS callback
+  delivery, signed by the agent with its own shared secret after a completed,
+  locally verified report.
 - [`examples/agent-inspection.ts`](../examples/agent-inspection.ts): a
   MainNet runner with MicroVern’s deployed HTTPS origin, official USDC ASA,
   receiver, and a hard `$0.01` cap pinned in code.
@@ -114,3 +117,54 @@ with the agent’s independently declared recipient, ASA, ALGO/USDC, network,
 and expiry boundaries. The public [Intent check](intent.html) implements the
 same fail-closed review for humans. An `allow` verdict or intent match is
 decision support, not authorization to sign.
+
+## Optional completion webhook
+
+The agent runner can notify a callback endpoint only after it has received the
+report, verified its request binding locally, and recorded the x402 settlement
+transaction ID. This is an **agent-side** callback: MicroVern's public service
+never accepts an arbitrary callback URL and never makes outbound requests on a
+caller’s behalf.
+
+Set both values through your agent's secret manager or runtime environment;
+do not commit the webhook secret:
+
+```powershell
+$env:MICROVERN_WEBHOOK_URL = "https://agent.example/hooks/microvern"
+$env:MICROVERN_WEBHOOK_SECRET = "<at-least-16-byte-random-secret>"
+npx tsx examples/agent-inspection.ts
+```
+
+The URL must be HTTPS and cannot include credentials, a query string, or a
+fragment. Delivery uses `POST`, refuses redirects, and has a five-second
+timeout. There is no automatic retry because a receiver may have processed a
+successful request even if the agent did not receive its response.
+
+The JSON event has this form:
+
+```json
+{
+  "version": 1,
+  "event": "microvern.inspection.completed",
+  "occurredAt": "2026-09-26T00:00:00.000Z",
+  "idempotencyKey": "one-logical-inspection-key",
+  "requestId": "optional-support-correlation-id",
+  "reportId": "request-hash",
+  "paymentTransactionId": "algorand-settlement-transaction-id",
+  "report": { "verdict": "review", "requestHash": "...", "reportChecksum": "..." }
+}
+```
+
+It intentionally contains no original unsigned transaction group. The
+signature headers are:
+
+| Header | Value |
+| --- | --- |
+| `X-MicroVern-Webhook-Event` | `microvern.inspection.completed` |
+| `X-MicroVern-Webhook-Timestamp` | Exact `occurredAt` timestamp |
+| `X-MicroVern-Webhook-Signature` | `v1=` plus lowercase HMAC-SHA256 of `timestamp + "." + rawBody` using your shared secret |
+
+At the receiver, reject stale timestamps, verify the signature against the
+**raw** request body with a timing-safe comparison, and deduplicate on the
+`idempotencyKey` plus `reportId`. Independently verify the report binding
+before any signing decision; a delivered webhook is not authorization to sign.

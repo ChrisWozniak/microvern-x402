@@ -131,9 +131,12 @@ The service rejects a key that is bound to different transaction data or policy.
 in-progress inspection, throttling, service unavailability, and a rejected
 request so an agent can recover without guessing from error text. The client
 also rejects a returned report unless its request hash and checksum bind it to
-the exact request. See the [agent integration kit](docs/agent-integration.md)
-for a no-secret runner, no-payment preflight, bounded recovery rules, and
-receipt handling.
+the exact request. After that verified result, an agent can optionally send an
+HTTPS-only, HMAC-authenticated completion webhook with the report, receipt,
+and stable IDs—but never the original unsigned transaction group. See the
+[agent integration kit](docs/agent-integration.md) for a no-secret runner,
+no-payment preflight, bounded recovery rules, receipt handling, and callback
+receiver requirements.
 
 ## Local verification coverage
 
