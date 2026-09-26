@@ -3,7 +3,7 @@ import { validatePolicyProfile } from "./policy-profiles.js";
 import type { InspectionPolicy, InspectionRequest, Network } from "./types.js";
 
 const MAX_ENCODED_BYTES = 64 * 1024;
-const REQUEST_FIELDS = new Set(["network", "unsignedTransactionGroup", "policy", "policyProfile"]);
+const REQUEST_FIELDS = new Set(["network", "unsignedTransactionGroup", "policy", "policyProfile", "accountStateChecks"]);
 const POLICY_FIELDS = new Set(["maxAlgoSend", "maxUsdcSend", "allowRekey", "allowCloseOut", "allowUnknownApps", "allowedApplicationIds", "allowedAssetIds", "prohibitAdminActions"]);
 
 function isNetwork(value: unknown): value is Network {
@@ -37,9 +37,23 @@ export function parseInspectionRequest(value: unknown): InspectionRequest {
   if (candidate.policy !== undefined && candidate.policyProfile !== undefined) {
     throw new ValidationError("Provide either policy or policyProfile, not both.");
   }
+  let accountStateChecks: { consent: true } | undefined;
+  if (candidate.accountStateChecks !== undefined) {
+    if (
+      typeof candidate.accountStateChecks !== "object"
+      || candidate.accountStateChecks === null
+      || Array.isArray(candidate.accountStateChecks)
+      || Object.keys(candidate.accountStateChecks).length !== 1
+      || !("consent" in candidate.accountStateChecks)
+      || candidate.accountStateChecks.consent !== true
+    ) {
+      throw new ValidationError("accountStateChecks must be exactly { consent: true } to approve public account-state reads.");
+    }
+    accountStateChecks = { consent: true };
+  }
   if (candidate.policyProfile !== undefined) {
     validatePolicyProfile(candidate.policyProfile, candidate.network);
-    return { network: candidate.network, unsignedTransactionGroup: candidate.unsignedTransactionGroup, policyProfile: candidate.policyProfile as string };
+    return { network: candidate.network, unsignedTransactionGroup: candidate.unsignedTransactionGroup, policyProfile: candidate.policyProfile as string, ...(accountStateChecks === undefined ? {} : { accountStateChecks }) };
   }
 
   if (candidate.policy !== undefined && (typeof candidate.policy !== "object" || candidate.policy === null || Array.isArray(candidate.policy))) {
@@ -47,7 +61,7 @@ export function parseInspectionRequest(value: unknown): InspectionRequest {
   }
 
   if (candidate.policy === undefined) {
-    return { network: candidate.network, unsignedTransactionGroup: candidate.unsignedTransactionGroup };
+    return { network: candidate.network, unsignedTransactionGroup: candidate.unsignedTransactionGroup, ...(accountStateChecks === undefined ? {} : { accountStateChecks }) };
   }
 
   const policy = candidate.policy as Record<string, unknown>;
@@ -79,5 +93,6 @@ export function parseInspectionRequest(value: unknown): InspectionRequest {
     network: candidate.network,
     unsignedTransactionGroup: candidate.unsignedTransactionGroup,
     policy: policy as InspectionPolicy,
+    ...(accountStateChecks === undefined ? {} : { accountStateChecks }),
   };
 }

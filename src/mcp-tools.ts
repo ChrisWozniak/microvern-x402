@@ -17,6 +17,8 @@ export interface McpInspectionInput {
   transactionLimits: { maxAlgoSend: number; maxUsdcSend: number };
   /** Exact transaction recipients the caller is willing to consider. */
   allowedRecipients: string[];
+  /** Explicit approval to query public account state related to this group. */
+  observeAccountState?: boolean | undefined;
 }
 
 export interface McpPaymentTrust {
@@ -68,6 +70,7 @@ function preparedRequest(input: McpInspectionInput): { request: InspectionReques
     network: input.network,
     unsignedTransactionGroup: input.unsignedTransactionGroup,
     policyProfile: input.policyProfile,
+    ...(input.observeAccountState === true ? { accountStateChecks: { consent: true as const } } : {}),
   };
   const localPolicy = {
     ...selected.policy,

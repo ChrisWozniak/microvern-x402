@@ -17,6 +17,30 @@ export const MICROVERN_MAINNET_CONFIRMATION = "ENABLE_MAINNET_PAYMENTS";
 
 export type MicrovernPaymentNetwork = "algorand-mainnet" | "algorand-testnet";
 
+function optionalHttpsBaseUrl(value: string | undefined, name: string): string | undefined {
+  if (value === undefined || value.trim().length === 0) return undefined;
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.search || parsed.hash) throw new Error();
+    return parsed.toString();
+  } catch {
+    throw new Error(`${name} must be a valid HTTPS Algod base URL without credentials, query, or fragment.`);
+  }
+}
+
+/**
+ * Optional read-only Algod endpoints for caller-approved public account-state
+ * observations. No default is used: production operators pin their provider.
+ */
+export function loadAlgodObserverUrls(environment: NodeJS.ProcessEnv = process.env): Partial<Record<MicrovernPaymentNetwork, string>> {
+  const mainnet = optionalHttpsBaseUrl(environment.MICROVERN_ALGOD_MAINNET_URL, "MICROVERN_ALGOD_MAINNET_URL");
+  const testnet = optionalHttpsBaseUrl(environment.MICROVERN_ALGOD_TESTNET_URL, "MICROVERN_ALGOD_TESTNET_URL");
+  return {
+    ...(mainnet === undefined ? {} : { "algorand-mainnet": mainnet }),
+    ...(testnet === undefined ? {} : { "algorand-testnet": testnet }),
+  };
+}
+
 export interface PaymentConfig {
   readonly network: MicrovernPaymentNetwork;
   readonly caip2: `${string}:${string}`;

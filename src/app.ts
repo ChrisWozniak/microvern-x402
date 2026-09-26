@@ -9,7 +9,9 @@ import {
 } from "@x402/hono";
 import { HTTPFacilitatorClient, type FacilitatorClient } from "@x402/core/server";
 import { bazaarResourceServerExtension, declareDiscoveryExtension } from "@x402/extensions/bazaar";
-import { inspectUnsignedTransaction } from "./analyze.js";
+import { accountStateTargetsForUnsignedGroup, inspectUnsignedTransaction } from "./analyze.js";
+import { createAccountStateObserver, type AccountStateObserver } from "./account-state.js";
+import { APPLICATION_REGISTRY_VERSION, listRecognizedApplications } from "./application-registry.js";
 import { hashInspectionRequest } from "./binding.js";
 import { loadPaymentConfig, type PaymentConfig } from "./config.js";
 import { ValidationError } from "./errors.js";
@@ -64,6 +66,13 @@ const INSPECTION_REQUEST_SCHEMA = {
       },
     },
     policyProfile: { type: "string", pattern: "^[a-z0-9-]{3,80}$" },
+    accountStateChecks: {
+      type: "object",
+      additionalProperties: false,
+      required: ["consent"],
+      properties: { consent: { const: true } },
+      description: "Explicit consent for read-only public account-state observations related to this group.",
+    },
   },
 } as const;
 
@@ -93,6 +102,18 @@ const INSPECTION_RESPONSE_SCHEMA = {
       type: "object",
       required: ["id", "version"],
       properties: { id: { type: "string" }, version: { type: "string" } },
+    },
+    accountState: {
+      type: "object",
+      required: ["status", "source", "accounts", "notice"],
+      properties: {
+        status: { type: "string", enum: ["observed", "not-configured", "unavailable"] },
+        source: { const: "algod" },
+        observedRound: { type: "integer", minimum: 0 },
+        observedAt: { type: "string", format: "date-time" },
+        accounts: { type: "array" },
+        notice: { type: "string" },
+      },
     },
     rulesetVersion: { type: "string" },
     disclaimer: { type: "string" },
@@ -292,6 +313,7 @@ function addRoutes(
   paymentConfig: PaymentConfig | undefined,
   facilitatorClient: FacilitatorClient | undefined,
   paymentEnabled: boolean,
+  accountStateObserver: AccountStateObserver,
 ): void {
   const advertisedConfig = paymentConfig ?? loadPaymentConfig();
 
@@ -318,6 +340,17 @@ function addRoutes(
       rulesetVersion: RULESET_VERSION,
       supportedNetworks: ["algorand-mainnet", "algorand-testnet"],
       policyProfiles: listPolicyProfiles(),
+      accountStateChecks: {
+        supported: true,
+        explicitConsentRequired: true,
+        configuredNetworks: accountStateObserver.configuredNetworks,
+        notice: "When requested, observations are labeled with the Algod-reported round and are not guarantees of current or future state.",
+      },
+      applicationRegistry: {
+        version: APPLICATION_REGISTRY_VERSION,
+        recognizedApplications: listRecognizedApplications(),
+        notice: "Only exact registry matches receive plain-language method explanations. All other application calls remain visibly unknown.",
+      },
       input: "Base64 of one or more concatenated unsigned Algorand transactions encoded with algosdk.encodeUnsignedTransaction. Multi-transaction inputs must share one group ID.",
       payment: advertisedConfig === undefined
         ? { enabled: false, configured: false }
@@ -349,12 +382,16 @@ function addRoutes(
     try {
       const request = parseInspectionRequest(await readRequestJson(c));
       const selectedProfile = request.policyProfile === undefined ? undefined : resolvePolicyProfile(request.policyProfile, request.network);
+      const accountState = request.accountStateChecks === undefined
+        ? undefined
+        : await accountStateObserver.observe(request.network, accountStateTargetsForUnsignedGroup(request.unsignedTransactionGroup));
       const report = inspectUnsignedTransaction(
         request.unsignedTransactionGroup,
         request.network,
         selectedProfile?.policy ?? request.policy,
         request,
         selectedProfile?.profile,
+        accountState,
       );
       c.header("X-MicroVern-Report-Id", report.requestHash);
       return c.json(report);
@@ -390,6 +427,7 @@ export function createPaymentProtectedService(
   paymentConfig: PaymentConfig,
   facilitatorClient: FacilitatorClient = new HTTPFacilitatorClient({ url: paymentConfig.facilitatorUrl }),
   idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
+  accountStateObserver: AccountStateObserver = createAccountStateObserver(),
 ): MicrovernService {
   const resourceServer = new x402ResourceServer(facilitatorClient)
     .register(paymentConfig.caip2, new ExactAvmScheme())
@@ -404,7 +442,7 @@ export function createPaymentProtectedService(
   });
   addInspectionGuards(app, idempotencyStore, false);
   app.use(paymentMiddlewareFromHTTPServer(paymentServer, undefined, undefined, false));
-  addRoutes(app, paymentConfig, facilitatorClient, true);
+  addRoutes(app, paymentConfig, facilitatorClient, true, accountStateObserver);
 
   return {
     app,
@@ -415,7 +453,10 @@ export function createPaymentProtectedService(
   };
 }
 
-export function createLocalAnalysisApp(idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore()): Hono {
+export function createLocalAnalysisApp(
+  idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
+  accountStateObserver: AccountStateObserver = createAccountStateObserver(),
+): Hono {
   const localApp = new Hono();
   addBrowserReviewCors(localApp);
   localApp.use(async (c, next) => {
@@ -423,7 +464,7 @@ export function createLocalAnalysisApp(idempotencyStore: IdempotencyStore = new 
     await next();
   });
   addInspectionGuards(localApp, idempotencyStore, true);
-  addRoutes(localApp, undefined, undefined, false);
+  addRoutes(localApp, undefined, undefined, false, accountStateObserver);
   return localApp;
 }
 

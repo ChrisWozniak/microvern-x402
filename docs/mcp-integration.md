@@ -43,6 +43,21 @@ and sends no payment. The MCP server never generates a payment signature and
 never accepts a seed phrase or private key. An agent must create any signature
 through its own approved wallet, HSM, or signer boundary.
 
+## Optional account-state observation
+
+All MCP tools default to **no account-state query**. An agent may set
+`observeAccountState: true` only after its caller has approved a read of the
+public sender accounts and ASA opt-in state involved in the submitted group.
+MicroVern forwards this as the HTTP request's explicit
+`accountStateChecks: { consent: true }` field.
+
+If the deployed service has the selected network's pinned HTTPS Algod observer
+configured, a completed report labels the facts as `observed at round X` and
+includes an observation time. These public facts can change after that round;
+they are not a guarantee, a reservation, or a simulation. An unconfigured or
+unavailable observer is reported transparently and does not become a safety
+claim. The consent choice is bound into the request hash and report checksum.
+
 ## Versioned profiles
 
 Use one known profile rather than an ad-hoc policy in MCP requests:
@@ -63,11 +78,12 @@ is forwarded.
 
 1. Construct the unsigned group outside MicroVern.
 2. Select a profile, explicit ALGO/USDC transaction caps, and an exact recipient allowlist.
-3. Call `validate_transaction`.
-4. Call `get_quote` with an explicit payment cap and pinned x402 receiver,
+3. If authorized, set `observeAccountState: true`; otherwise omit it.
+4. Call `validate_transaction`.
+5. Call `get_quote` with an explicit payment cap and pinned x402 receiver,
    USDC asset, and Algorand CAIP-2 network.
-5. Show or apply the exact quote through the agent's separate approval policy.
-6. Only after approval, call `inspect_transaction` with the externally created
+6. Show or apply the exact quote through the agent's separate approval policy.
+7. Only after approval, call `inspect_transaction` with the externally created
    payment proof.
-7. Treat the returned report as decision support; independently verify it
+8. Treat the returned report as decision support; independently verify it
    before any signing decision.

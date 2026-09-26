@@ -38,6 +38,13 @@ describe("MicroVern MCP tools", () => {
     expect(fetchImplementation).toHaveBeenCalledTimes(1);
   });
 
+  it("forwards account observation only after explicit agent approval", async () => {
+    const fetchImplementation = remote();
+    await createMicrovernMcpTools(fetchImplementation).validateTransaction({ ...request, observeAccountState: true });
+    const init = fetchImplementation.mock.calls[0]?.[1];
+    expect(JSON.parse(String(init?.body))).toMatchObject({ accountStateChecks: { consent: true } });
+  });
+
   it("returns only a quote that matches the caller's explicit payment cap", async () => {
     const fetchImplementation = remote();
     const result = await createMicrovernMcpTools(fetchImplementation).getQuote({ ...request, paymentTrust });

@@ -21,6 +21,7 @@ const inspectionInput = z.object({
     maxUsdcSend: z.number().finite().nonnegative().describe("Explicit caller maximum outgoing USDC."),
   }),
   allowedRecipients: z.array(z.string().regex(/^[A-Z2-7]{58}$/u)).min(1).describe("Exact transaction-recipient allowlist required by the caller."),
+  observeAccountState: z.boolean().optional().describe("Set true only with caller approval to request public, round-labeled Algod account-state observations. It never gives MicroVern wallet access."),
 });
 
 function result(value: Record<string, unknown>) {

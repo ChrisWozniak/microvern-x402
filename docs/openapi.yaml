@@ -140,6 +140,13 @@ components:
           type: string
           enum: [strict-usdc-v1, algo-only-v1, no-admin-actions-v1]
           description: Built-in, versioned profile. Provide this instead of an ad-hoc policy.
+        accountStateChecks:
+          type: object
+          additionalProperties: false
+          required: [consent]
+          description: Explicit consent for MicroVern to make read-only public Algod observations for sender accounts and ASAs touched by the group. Omit to make no account-state query.
+          properties:
+            consent: { const: true }
     InspectionReport:
       type: object
       required: [verdict, riskScore, summary, reviewSummary, actions, findings, policyEvaluation, rulesetVersion, disclaimer, requestHash, reportChecksum]
@@ -174,6 +181,17 @@ components:
               consequences:
                 type: array
                 items: { type: string }
+              application:
+                type: object
+                description: Present for application calls. Exact registry matches are recognized; all others remain explicitly unknown.
+                required: [registryVersion, applicationId, recognition]
+                properties:
+                  registryVersion: { type: string }
+                  applicationId: { type: integer, minimum: 0 }
+                  recognition: { type: string, enum: [recognized, known-application-unknown-method, unknown] }
+                  name: { type: string }
+                  method: { type: string }
+                  referenceUrl: { type: string, format: uri }
         findings:
           type: array
           items:
@@ -196,6 +214,33 @@ components:
           properties:
             id: { type: string }
             version: { type: string }
+        accountState:
+          type: object
+          description: Present only after accountStateChecks consent. `observed` is a time-bounded public-node observation, not a guarantee that state will remain unchanged.
+          required: [status, source, accounts, notice]
+          properties:
+            status: { type: string, enum: [observed, not-configured, unavailable] }
+            source: { const: algod }
+            observedRound: { type: integer, minimum: 0 }
+            observedAt: { type: string, format: date-time }
+            notice: { type: string }
+            accounts:
+              type: array
+              items:
+                type: object
+                required: [address, active, assetOptIns]
+                properties:
+                  address: { type: string }
+                  active: { type: boolean, description: True only when the configured Algod node returned an account ledger record. }
+                  balanceMicroAlgos: { type: string, pattern: '^\d+$' }
+                  assetOptIns:
+                    type: array
+                    items:
+                      type: object
+                      required: [assetId, optedIn]
+                      properties:
+                        assetId: { type: integer, minimum: 0 }
+                        optedIn: { type: boolean }
         rulesetVersion: { type: string }
         disclaimer: { type: string }
         requestHash:

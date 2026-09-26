@@ -17,6 +17,37 @@ export interface InspectionPolicy {
   prohibitAdminActions?: boolean;
 }
 
+/**
+ * Explicit, per-request consent to read public Algorand account state related
+ * to the submitted group. It is intentionally opt-in: MicroVern does not
+ * query accounts merely because an unsigned group was submitted.
+ */
+export interface AccountStateChecks {
+  consent: true;
+}
+
+export interface ObservedAccountState {
+  address: string;
+  /** True only when the configured Algod node returned a ledger record. */
+  active: boolean;
+  /** Atomic ALGO balance returned by Algod; absent when no record was found. */
+  balanceMicroAlgos?: string;
+  assetOptIns: Array<{ assetId: number; optedIn: boolean }>;
+}
+
+/**
+ * Public-state observations are facts reported by the configured Algod node,
+ * not a prediction or a reservation. They can change after the reported round.
+ */
+export interface AccountStateContext {
+  status: "observed" | "not-configured" | "unavailable";
+  source: "algod";
+  observedRound?: number;
+  observedAt?: string;
+  accounts: ObservedAccountState[];
+  notice: string;
+}
+
 export interface AppliedPolicyProfile {
   id: string;
   version: string;
@@ -29,6 +60,8 @@ export interface InspectionRequest {
   policy?: InspectionPolicy;
   /** A built-in, versioned profile selected instead of an ad-hoc policy. */
   policyProfile?: string;
+  /** Explicit consent to obtain current public account-state observations. */
+  accountStateChecks?: AccountStateChecks;
 }
 
 export interface Finding {
@@ -43,6 +76,15 @@ export interface Action {
   type: string;
   description: string;
   consequences: string[];
+  /** Machine-readable explanation when this is an Algorand application call. */
+  application?: {
+    registryVersion: string;
+    applicationId: number;
+    recognition: "recognized" | "known-application-unknown-method" | "unknown";
+    name?: string;
+    method?: string;
+    referenceUrl?: string;
+  };
 }
 
 /** Deterministic totals suitable for a risk-first human review surface. */
@@ -66,6 +108,8 @@ export interface InspectionAnalysis {
   findings: Finding[];
   policyEvaluation: Record<string, "passed" | "failed" | "not-configured">;
   policyProfile?: AppliedPolicyProfile;
+  /** Present only when the caller explicitly consented to public state reads. */
+  accountState?: AccountStateContext;
   rulesetVersion: typeof RULESET_VERSION;
   disclaimer: string;
 }

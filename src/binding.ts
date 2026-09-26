@@ -48,6 +48,7 @@ export function hashInspectionRequest(request: InspectionRequest): string {
     unsignedTransactionGroup: Buffer.from(request.unsignedTransactionGroup, "base64").toString("base64"),
     policy: canonicalPolicy(request.policy),
     ...(request.policyProfile === undefined ? {} : { policyProfile: request.policyProfile }),
+    ...(request.accountStateChecks === undefined ? {} : { accountStateChecks: { consent: true } }),
   });
 }
 
@@ -70,6 +71,7 @@ export function verifyInspectionReportBinding(request: InspectionRequest, report
     findings: report.findings,
     policyEvaluation: report.policyEvaluation,
     ...(report.policyProfile === undefined ? {} : { policyProfile: report.policyProfile }),
+    ...(report.accountState === undefined ? {} : { accountState: report.accountState }),
     rulesetVersion: report.rulesetVersion,
     disclaimer: report.disclaimer,
   };

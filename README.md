@@ -122,6 +122,39 @@ The publishable API contract is [docs/openapi.yaml](docs/openapi.yaml). Generate
 
 Requests are capped at 128 KiB before payment middleware, and repeated unpaid inspection attempts are rate-limited. MicroVern returns an `X-Request-Id` for support correlation and intentionally does not log raw transaction payloads. The in-memory idempotency cache is suitable for local/Testnet use. Set the secret `MICROVERN_POSTGRES_URL` to use the shared durable PostgreSQL store required for MainNet.
 
+## Optional public account-state context
+
+MicroVern makes **no account query by default**. A caller may explicitly add
+the following to an inspection request:
+
+```json
+"accountStateChecks": { "consent": true }
+```
+
+When the selected network has a pinned HTTPS Algod endpoint configured through
+`MICROVERN_ALGOD_MAINNET_URL` or `MICROVERN_ALGOD_TESTNET_URL`, the completed
+report includes public sender-account presence, reported ALGO balance, and
+opt-in status for ASAs touched by the group. It is labeled as an Algod
+observation at round `X`, with its observation time. It is not a guarantee,
+reservation, balance simulation, or prediction: state can change after the
+reported round. If no endpoint is configured or the query fails, the report
+plainly says `not-configured` or `unavailable`; no safety conclusion is drawn.
+
+The consent flag is part of the report's request-hash/checksum binding. Reusing
+an idempotency key replays the original report and observation; use a fresh key
+when a new observation is genuinely required.
+
+## Recognized application calls
+
+Application calls are always treated conservatively. Registry
+`2026-09-v1` recognizes the documented Tinyman V2 validator application on
+MainNet (`1002541853`) and TestNet (`148607000`), with cautious explanations
+for `swap`, `add_initial_liquidity`, `add_liquidity`, and
+`remove_liquidity`. The report includes the registry version, application ID,
+recognition state, and a documentation reference. An unlisted application—or
+an unlisted method on a known application—remains visibly unknown rather than
+being guessed from its name.
+
 ## Agent integration kit
 
 [`src/agent-client.ts`](src/agent-client.ts) provides a reusable TypeScript
@@ -177,13 +210,14 @@ Every call requires a named profile, explicit ALGO/USDC transaction caps, and
 an exact transaction-recipient allowlist. The paid tools additionally require
 caller-pinned x402 network, USDC ASA, receiver, and atomic spend cap. `inspect_transaction` returns only
 an approval-required quote unless the caller supplies an **externally created**
-payment proof; MicroVern never accepts a wallet key or seed phrase. See the
+payment proof; `observeAccountState: true` is the separate, explicit agent
+approval for public round-labeled account observations. MicroVern never accepts a wallet key or seed phrase. See the
 [MCP integration guide](docs/mcp-integration.md) for connection setup, the
 three supported profiles, and the safe agent sequence.
 
 ## Local verification coverage
 
-`npm test` currently runs 89 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, and payment-proof boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 96 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 

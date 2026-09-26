@@ -2,7 +2,9 @@ import algosdk from "algosdk";
 import { decodeMulti } from "algorand-msgpack";
 import { bindInspectionReport } from "./binding.js";
 import { ValidationError } from "./errors.js";
-import { RULESET_VERSION, type Action, type AppliedPolicyProfile, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type InspectionRequest, type ReviewSummary, type Verdict } from "./types.js";
+import { explainApplicationCall } from "./application-registry.js";
+import type { AccountStateTargets } from "./account-state.js";
+import { RULESET_VERSION, type AccountStateContext, type Action, type AppliedPolicyProfile, type Finding, type InspectionAnalysis, type InspectionPolicy, type InspectionReport, type InspectionRequest, type ReviewSummary, type Verdict } from "./types.js";
 
 const MAINNET_USDC_ASSET_ID = 31_566_704;
 const TESTNET_USDC_ASSET_ID = 10_458_941;
@@ -82,12 +84,27 @@ function decodeUnsignedGroup(encoded: string): algosdk.Transaction[] {
   }
 }
 
+/** Returns only public addresses and ASAs touched by the submitted group. */
+export function accountStateTargetsForUnsignedGroup(encoded: string): AccountStateTargets {
+  const addresses = new Set<string>();
+  const assetIds = new Set<number>();
+  for (const transaction of decodeUnsignedGroup(encoded)) {
+    addresses.add(transaction.sender.toString());
+    if (transaction.assetTransfer !== undefined) assetIds.add(Number(transaction.assetTransfer.assetIndex));
+  }
+  return {
+    addresses: [...addresses].sort(),
+    assetIds: [...assetIds].sort((left, right) => left - right),
+  };
+}
+
 export function inspectUnsignedTransaction(
   encoded: string,
   network: "algorand-mainnet" | "algorand-testnet",
   policy: InspectionPolicy = {},
   bindingRequest: InspectionRequest = { network, unsignedTransactionGroup: encoded, policy },
   policyProfile?: AppliedPolicyProfile,
+  accountState?: AccountStateContext,
 ): InspectionReport {
   const transactions = decodeUnsignedGroup(encoded);
 
@@ -143,7 +160,21 @@ export function inspectUnsignedTransaction(
       if (applicationCall === undefined) throw new ValidationError("Decoded application call is missing application fields.");
       const appId = Number(applicationCall.appIndex);
       const completion = appCompletionName(applicationCall.onComplete);
-      actions.push({ index: transactionIndex, type: "application-call", description: `Call application ${appId} with ${completion} completion ${describeAppArguments(applicationCall.appArgs)}.`, consequences: ["The application call may change on-chain state; only safely displayable arguments are rendered."] });
+      const application = explainApplicationCall(network, appId, applicationCall.appArgs);
+      actions.push({
+        index: transactionIndex,
+        type: "application-call",
+        description: `${application.description} Completion: ${completion}; ${describeAppArguments(applicationCall.appArgs)}.`,
+        consequences: [...application.consequences, "The application call may change on-chain state; only safely displayable arguments are rendered."],
+        application: {
+          registryVersion: application.registryVersion,
+          applicationId: application.applicationId,
+          recognition: application.recognition,
+          ...(application.name === undefined ? {} : { name: application.name }),
+          ...(application.method === undefined ? {} : { method: application.method }),
+          ...(application.referenceUrl === undefined ? {} : { referenceUrl: application.referenceUrl }),
+        },
+      });
       const unknownApp = effectivePolicy.allowedApplicationIds?.includes(appId) !== true;
       if (!effectivePolicy.allowUnknownApps && unknownApp) {
         pushFinding(findings, { code: "UNKNOWN_APPLICATION", severity: "high", transactionIndex, message: `Application ${appId} is not on the configured allowlist.` });
@@ -222,6 +253,7 @@ export function inspectUnsignedTransaction(
     findings,
     policyEvaluation,
     ...(policyProfile === undefined ? {} : { policyProfile }),
+    ...(accountState === undefined ? {} : { accountState }),
     rulesetVersion: RULESET_VERSION,
     disclaimer: "MicroVern is an automated analysis tool, not a guarantee of safety or financial advice.",
   };

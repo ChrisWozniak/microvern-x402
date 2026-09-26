@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.7
+**Version:** 1.8
 **Date:** 2026-09-26
 **Status:** Living product plan; MainNet release record reconciled
 
@@ -111,16 +111,18 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 89 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof boundaries, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
+| Automated coverage | Delivered | `npm test` runs 96 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
 | MainNet deployment | Delivered | Paid Render compute, durable PostgreSQL, explicit enablement guard, public HTTPS service, and no-payment preflight are live at `https://microvern-x402-mainnet.onrender.com`. |
 | Real paid MainNet proof | Delivered | One intentionally capped `$0.01` USDC inspection settled: [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) · [GoPlausible receipt](https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA). |
 | Public landing page | Delivered | [GitHub Pages](https://chriswozniak.github.io/microvern-x402/) publishes the product explanation and original icon over HTTPS. |
-| Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, a no-spend guided demo, free structural preflight, policy builder, saved browser-local safeguards, intent check, private local history, x402 quote disclosure, a visual decision snapshot, risk-first report viewer, sharing, and local report verification. It does not request wallet secrets or sign transactions. |
+| Human review console | Delivered | GitHub Pages provides a mobile-friendly request composer, a no-spend guided demo, free structural preflight, policy builder, explicit opt-in for public round-labeled account observations, saved browser-local safeguards, intent check, private local history, x402 quote disclosure, a visual decision snapshot, risk-first report viewer, sharing, and local report verification. It does not request wallet secrets or sign transactions. |
 | Versioned API policy profiles | Delivered | `strict-usdc-v1`, `algo-only-v1`, and `no-admin-actions-v1` resolve deterministically before payment. The selected ID/version is bound into each report. |
 | Agent MCP interface | Delivered | A local stdio MCP server exposes `validate_transaction`, `get_quote`, and `inspect_transaction` with mandatory profile, ALGO/USDC transaction caps, recipient allowlist, payment-cap, receiver, and network boundaries. It accepts no wallet secret. |
+| Optional account-state context | Delivered foundation | A caller must explicitly request `{ "accountStateChecks": { "consent": true } }`. MicroVern then reads only public sender/ASA facts from a configured Algod endpoint and labels the result `observed at round X`, `not configured`, or `unavailable`; it never presents an observation as a guarantee. |
+| Recognized application-call semantics | Delivered foundation | Versioned registry `2026-09-v1` recognizes the documented Tinyman V2 MainNet/TestNet validator apps and selected methods. Other applications and unrecognized methods remain visibly unknown. |
 | Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but read-only MainNet and TestNet searches returned zero MicroVern results on 2026-09-26. That does not invalidate the paid endpoint. |
 
 ## MainNet release record
@@ -199,17 +201,21 @@ service behavior.
 **Purpose:** add current account, asset, and network context that raw bytes
 alone cannot provide.
 
-**Requirements:** record the ledger round; check likely insufficient balance,
-asset opt-in, minimum-balance, and obvious authorization conditions when data
-is available; identify unavailable or uncertain checks instead of inventing a
-result.
+**Delivered foundation:** callers opt in with `accountStateChecks.consent`.
+With a configured HTTPS Algod endpoint for that network, MicroVern observes
+each sender's ledger-record presence, reported ALGO balance, and opt-in state
+for ASAs touched by the submitted group. The returned context names the
+Algod-reported round and observation time. Without configuration or on a
+timeout/error, it returns a clear `not configured` or `not evaluated` result;
+the inspection verdict never treats either as a safety claim.
 
-**Acceptance:** every context-derived finding includes its observation round
-and source status. A timeout or unavailable dependency becomes transparent
-`not evaluated`, never a safety claim.
+**Remaining requirements:** add careful balance/minimum-balance and execution
+simulation checks only after defining their observation source, round semantics,
+latency budget, and privacy implications.
 
-**Dependency:** reliable Algod/indexer access, latency budget, caching, and
-privacy review.
+**Deployment requirement:** configure the appropriate pinned HTTPS
+`MICROVERN_ALGOD_MAINNET_URL` and/or `MICROVERN_ALGOD_TESTNET_URL`. No implicit
+third-party node is used.
 
 ### 4. Named, versioned policy profiles
 
@@ -254,12 +260,16 @@ Delivered with deterministic boundary and binding tests.
 **Purpose:** turn opaque application calls into useful descriptions where
 verified knowledge of a protocol or application exists.
 
-**Requirements:** maintain a conservative registry of supported patterns;
-display the interpretation, its evidence, and an explicit unknown fallback.
+**Delivered foundation:** registry `2026-09-v1` maps the documented Tinyman V2
+validator IDs on MainNet and TestNet, and its `swap`, `add_initial_liquidity`,
+`add_liquidity`, and `remove_liquidity` selectors, to cautious plain-language
+descriptions. The report includes registry version, app ID, recognition state,
+method when known, and the provider documentation link. Unknown applications
+and unknown methods are never inferred from their names.
 
 **Acceptance:** supported patterns have fixtures and regression tests;
 unrecognized calls are never described as understood; registry changes are
-versioned and reviewable.
+versioned and reviewable. Delivered for the initial Tinyman V2 entries.
 
 **Dependency:** a sustainable registry-maintenance process and
 protocol-specific fixtures.

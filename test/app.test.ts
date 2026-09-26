@@ -281,6 +281,27 @@ describe("MicroVern Stage 1 API", () => {
     expect(await response.json()).toEqual({ valid: true });
   });
 
+  it("requires explicit consent and transparently reports when account observations are not configured", async () => {
+    const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, assetIndex: 10_458_941, suggestedParams });
+    const body = await requestFor(txn).json() as Record<string, unknown>;
+    const response = await app.request("/v1/inspect-transaction", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, accountStateChecks: { consent: true } }),
+    });
+    expect(response.status).toBe(200);
+    const report = await response.json();
+    expect(report.accountState).toMatchObject({ status: "not-configured", source: "algod" });
+    expect(report.accountState.notice).toContain("not evaluated");
+
+    const invalid = await app.request("/v1/validate-transaction", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ...body, accountStateChecks: { consent: false } }),
+    });
+    expect(invalid.status).toBe(400);
+  });
+
   it("rejects fields outside the published discovery schema", async () => {
     const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams });
     const request = requestFor(txn);
@@ -430,6 +451,13 @@ describe("MicroVern Stage 1 API", () => {
     expect(report.actions[0].description).toContain("OptIn");
     expect(report.actions[0].description).toContain('"swap"');
     expect(report.actions[0].description).toContain("opaque value");
+  });
+
+  it("adds a conservative plain-language explanation for a recognized application method", async () => {
+    const txn = algosdk.makeApplicationCallTxnFromObject({ sender: sender.addr, appIndex: 148_607_000, onComplete: algosdk.OnApplicationComplete.NoOpOC, appArgs: [new TextEncoder().encode("swap"), new TextEncoder().encode("fixed-input")], suggestedParams });
+    const report = await (await app.request(requestFor(txn, { allowedApplicationIds: [148_607_000] }))).json();
+    expect(report.actions[0].description).toContain("Tinyman V2 Validator");
+    expect(report.actions[0].application).toMatchObject({ recognition: "recognized", method: "swap" });
   });
 
   it("requires review for asset creation and application administration", async () => {
