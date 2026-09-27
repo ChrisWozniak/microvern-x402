@@ -76,12 +76,14 @@ describe("MicroVern Stage 1 API", () => {
       headers: {
         origin: "https://chriswozniak.github.io",
         "access-control-request-method": "POST",
-        "access-control-request-headers": "content-type,idempotency-key",
+        "access-control-request-headers": "access-control-expose-headers,content-type,idempotency-key,payment-signature",
       },
     });
     expect(response.status).toBe(204);
     expect(response.headers.get("access-control-allow-origin")).toBe("https://chriswozniak.github.io");
     expect(response.headers.get("access-control-allow-headers")).toContain("Idempotency-Key");
+    expect(response.headers.get("access-control-allow-headers")).toContain("Access-Control-Expose-Headers");
+    expect(response.headers.get("access-control-allow-headers")).toContain("Payment-Signature");
     expect(response.headers.get("access-control-expose-headers")).toContain("X-MicroVern-Report-Id");
   });
 

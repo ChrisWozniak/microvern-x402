@@ -417,7 +417,9 @@ function addBrowserReviewCors(app: Hono): void {
   app.use("*", cors({
     origin: MICROVERN_REVIEW_ORIGIN,
     allowMethods: ["GET", "POST", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Idempotency-Key", "X-Request-Id", "Payment-Signature", "X-Payment"],
+    // @x402/fetch adds this request header to its paid browser retry so the
+    // caller can read PAYMENT-RESPONSE. It must be preflight-approved too.
+    allowHeaders: ["Content-Type", "Idempotency-Key", "X-Request-Id", "Payment-Signature", "X-Payment", "Access-Control-Expose-Headers"],
     exposeHeaders: ["Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-MicroVern-Report-Id", "X-Request-Id"],
     maxAge: 86_400,
   }));
