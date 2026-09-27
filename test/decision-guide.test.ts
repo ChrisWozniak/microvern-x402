@@ -12,8 +12,8 @@ describe("decision-time guidance", () => {
   it("gives a conservative explanation for review and allow verdicts", () => {
     expect(createMicrovernDecisionGuide({ verdict: "review", findings: [{ severity: "high", code: "UNKNOWN_APPLICATION" }] })).toMatchObject({ tone: "review", title: "Pause and confirm the details" });
     const allow = createMicrovernDecisionGuide({ verdict: "allow", findings: [] });
-    expect(allow.title).toBe("No configured rule was triggered");
-    expect(allow.summary).toContain("not a safety guarantee");
+    expect(allow.title).toBe("Your safeguards passed");
+    expect(allow.summary).toContain("may consider signing");
   });
 
   it("rejects an incomplete report", () => {

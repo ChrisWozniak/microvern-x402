@@ -51,8 +51,8 @@ export function createMicrovernDecisionGuide(report) {
 
   return {
     tone: "allow",
-    title: "No configured rule was triggered",
-    summary: "This is not a safety guarantee. It means the completed report did not find a configured policy violation in the analyzed transaction data.",
+    title: "Your safeguards passed",
+    summary: "MicroVern found no configured policy concern in this unchanged group. You may consider signing in your wallet after you confirm the recipient, amount, fee, and any off-chain agreement.",
     steps: [common, "Confirm the counterparty and any off-chain agreement independently before signing.", "If this group changed after review, generate and inspect a new report."],
   };
 }

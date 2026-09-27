@@ -61,7 +61,7 @@ export function createMicrovernReviewSummary(report, request) {
       ? { label: "Do not sign yet", tone: "block" }
       : report.verdict === "review"
         ? { label: "Pause and confirm", tone: "review" }
-        : { label: "No configured rule triggered", tone: "allow" },
+        : { label: "Safeguards passed", tone: "allow" },
     movement: [
       { label: "Outgoing ALGO", value: `${review.totalAlgoSent ?? "0"} ALGO` },
       { label: "Outgoing USDC", value: `${review.totalUsdcSent ?? "0"} USDC` },
