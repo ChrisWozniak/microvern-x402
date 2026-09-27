@@ -51,8 +51,8 @@ export function createMicrovernDecisionGuide(report) {
 
   return {
     tone: "allow",
-    title: "Your safeguards passed",
-    summary: "MicroVern found no configured policy concern in this unchanged group. You may consider signing in your wallet after you confirm the recipient, amount, fee, and any off-chain agreement.",
+    title: "Before you sign independently",
+    summary: "Your configured safeguards passed for this unchanged group. MicroVern does not authorize or sign it; confirm the recipient, amount, fee, and any off-chain agreement in your wallet.",
     steps: [common, "Confirm the counterparty and any off-chain agreement independently before signing.", "If this group changed after review, generate and inspect a new report."],
   };
 }
