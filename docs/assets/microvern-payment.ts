@@ -1,4 +1,5 @@
 import { PeraWalletConnect } from "@perawallet/connect";
+import { decodeUnsignedTransaction } from "algosdk";
 import { ExactAvmScheme } from "@x402/avm/exact/client";
 import type { ClientAvmSigner } from "@x402/avm";
 import { decodePaymentResponseHeader, wrapFetchWithPayment, x402Client } from "@x402/fetch";
@@ -54,7 +55,9 @@ function createPeraSigner(wallet: PeraWalletConnect, address: string): ClientAvm
     address,
     signTransactions: async (transactions, indexesToSign) => {
       const requested = transactions.map((transaction, index) => ({
-        txn: transaction,
+        // x402 supplies encoded bytes; Pera requires the SDK Transaction object
+        // so it can apply Algorand's canonical message-pack encoding.
+        txn: decodeUnsignedTransaction(transaction),
         signers: indexesToSign !== undefined && !indexesToSign.includes(index) ? [] : [address],
       }));
       const signed = await wallet.signTransaction([requested]);
