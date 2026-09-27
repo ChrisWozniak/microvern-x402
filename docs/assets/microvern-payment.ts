@@ -33,6 +33,8 @@ interface InspectionReport {
 // unlock a Ledger-backed Pera wallet, review the payment, and approve it.
 // The payment remains an atomic TestNet-only x402 group and still expires.
 export const TESTNET_PAYMENT_VALIDITY_ROUNDS = 120;
+const TESTNET_USDC_ASSET_ID = 10_458_941n;
+const TESTNET_PAYMENT_AMOUNT = 10_000n;
 
 export interface BrowserPaidInspectionResult {
   readonly report: InspectionReport;
@@ -91,6 +93,42 @@ function createPeraSigner(wallet: PeraWalletConnect, address: string): ClientAvm
   };
 }
 
+export function payerReadinessError(
+  address: string,
+  state: "not-opted-in" | "insufficient-balance" | "unavailable",
+): Error {
+  if (state === "not-opted-in") {
+    return new Error(
+      `Pera selected ${address}, but it is not opted into TestNet USDC (ASA 10458941). `
+      + "Switch Pera to the TestNet-funded account, then choose ‘Pair Pera again (show QR)’. No payment was signed.",
+    );
+  }
+  if (state === "insufficient-balance") {
+    return new Error(
+      `Pera selected ${address}, but it has less than $0.01 TestNet USDC (10,000 units). `
+      + "Choose or fund a TestNet USDC account, then try again. No payment was signed.",
+    );
+  }
+  return new Error(
+    `MicroVern could not verify whether Pera account ${address} can pay TestNet USDC. `
+    + "No payment was signed; check the network connection and try again.",
+  );
+}
+
+async function requireReadyTestnetUsdcPayer(algorandClient: AlgorandClient, address: string): Promise<void> {
+  try {
+    const holding = await algorandClient.asset.getAccountInformation(address, TESTNET_USDC_ASSET_ID);
+    if (holding.balance < TESTNET_PAYMENT_AMOUNT) throw payerReadinessError(address, "insufficient-balance");
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith("Pera selected")) throw error;
+    const detail = error instanceof Error ? error.message : "";
+    if (/\b404\b|not found|missing asset|asset.*missing/iu.test(detail)) {
+      throw payerReadinessError(address, "not-opted-in");
+    }
+    throw payerReadinessError(address, "unavailable");
+  }
+}
+
 async function restoreOrConnectTestnetSession(wallet: PeraWalletConnect, forceNewPairing: boolean): Promise<string> {
   if (forceNewPairing) {
     // This affects only the saved WalletConnect pairing for this browser. It
@@ -138,6 +176,7 @@ export async function payForMicrovernTestnetInspection(
   const signer = createPeraSigner(wallet, address);
   const algorandClient = AlgorandClient.testNet()
     .setDefaultValidityWindow(TESTNET_PAYMENT_VALIDITY_ROUNDS);
+  await requireReadyTestnetUsdcPayer(algorandClient, address);
   const client = new x402Client()
     .register(MICROVERN_TESTNET_CAIP2, new ExactAvmScheme(signer, { algorandClient }));
   client.registerPolicy((_version, requirements) => requirements.filter((requirement) => {
