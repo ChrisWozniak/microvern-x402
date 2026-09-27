@@ -1,4 +1,5 @@
 import { PeraWalletConnect } from "@perawallet/connect";
+import { AlgorandClient } from "@algorandfoundation/algokit-utils/algorand-client";
 import { decodeUnsignedTransaction } from "algosdk";
 import { ExactAvmScheme } from "@x402/avm/exact/client";
 import type { ClientAvmSigner } from "@x402/avm";
@@ -27,6 +28,11 @@ interface InspectionReport {
   readonly requestHash: string;
   readonly reportChecksum: string;
 }
+
+// AlgoKit's default is only 10 rounds. That is too short for a user who must
+// unlock a Ledger-backed Pera wallet, review the payment, and approve it.
+// The payment remains an atomic TestNet-only x402 group and still expires.
+export const TESTNET_PAYMENT_VALIDITY_ROUNDS = 120;
 
 export interface BrowserPaidInspectionResult {
   readonly report: InspectionReport;
@@ -85,7 +91,17 @@ function createPeraSigner(wallet: PeraWalletConnect, address: string): ClientAvm
   };
 }
 
-async function restoreOrConnectTestnetSession(wallet: PeraWalletConnect): Promise<string> {
+async function restoreOrConnectTestnetSession(wallet: PeraWalletConnect, forceNewPairing: boolean): Promise<string> {
+  if (forceNewPairing) {
+    // This affects only the saved WalletConnect pairing for this browser. It
+    // never touches the wallet, keys, assets, or an on-chain transaction.
+    await wallet.reconnectSession().catch(() => [] as string[]);
+    await wallet.disconnect().catch(() => undefined);
+    const address = (await wallet.connect())[0];
+    if (address === undefined) throw new Error("Pera did not provide an account to use for the TestNet payment.");
+    return address;
+  }
+
   // A QR scan can establish the WalletConnect session before this browser page
   // receives the account callback. Restore that session first so a second click
   // proceeds to the signing request instead of asking Pera to create it again.
@@ -106,6 +122,7 @@ export async function payForMicrovernTestnetInspection(
   serviceUrl: string,
   request: InspectionRequest,
   displayedQuote: PaymentRequired,
+  forceNewPairing = false,
 ): Promise<BrowserPaidInspectionResult> {
   if (!isMicrovernTestnetBrowserOrigin(serviceUrl)) {
     throw new Error("Browser wallet payment is available only for MicroVern's pinned TestNet service.");
@@ -116,11 +133,13 @@ export async function payForMicrovernTestnetInspection(
 
   const displayedRequirement = selectCappedTestnetPaymentRequirement(displayedQuote.accepts);
   const wallet = new PeraWalletConnect({ chainId: 416002, compactMode: true });
-  const address = await restoreOrConnectTestnetSession(wallet);
+  const address = await restoreOrConnectTestnetSession(wallet, forceNewPairing);
 
   const signer = createPeraSigner(wallet, address);
+  const algorandClient = AlgorandClient.testNet()
+    .setDefaultValidityWindow(TESTNET_PAYMENT_VALIDITY_ROUNDS);
   const client = new x402Client()
-    .register(MICROVERN_TESTNET_CAIP2, new ExactAvmScheme(signer));
+    .register(MICROVERN_TESTNET_CAIP2, new ExactAvmScheme(signer, { algorandClient }));
   client.registerPolicy((_version, requirements) => requirements.filter((requirement) => {
     try {
       return sameCappedTestnetPaymentRequirement(
