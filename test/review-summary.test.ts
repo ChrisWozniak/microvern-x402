@@ -20,7 +20,7 @@ const report = {
 describe("review summary", () => {
   it("prioritizes outgoing value, recipients, and account-control changes", () => {
     const summary = createMicrovernReviewSummary(report, { policy: { maxAlgoSend: 2, allowRekey: false } });
-    expect(summary.decision).toEqual({ label: "Do not sign yet", tone: "block" });
+    expect(summary.decision).toEqual({ label: "Blocked by your safeguards", tone: "block" });
     expect(summary.movement[0]).toEqual({ label: "Outgoing ALGO", value: "1.25 ALGO" });
     expect(summary.recipients).toEqual(["A".repeat(58)]);
     expect(summary.accountControl).toMatchObject({ changed: true });
@@ -34,6 +34,13 @@ describe("review summary", () => {
       expect.objectContaining({ label: "ALGO maximum", expected: "2 ALGO", actual: "1.25 ALGO", outcome: "passed" }),
       expect.objectContaining({ label: "Rekey", expected: "Blocked by default", actual: "Present", outcome: "failed" }),
     ]));
+  });
+
+  it("uses plain-language, non-guarantee decision labels", () => {
+    const base = { ...report, policyEvaluation: {} };
+    expect(createMicrovernReviewSummary({ ...base, verdict: "allow" }, { policy: {} }).decision).toEqual({ label: "Matches your selected safeguards", tone: "allow" });
+    expect(createMicrovernReviewSummary({ ...base, verdict: "review" }, { policy: {} }).decision).toEqual({ label: "Needs attention", tone: "review" });
+    expect(createMicrovernReviewSummary({ ...base, verdict: "block" }, { policy: {} }).decision).toEqual({ label: "Blocked — do not sign", tone: "block" });
   });
 
   it("rejects incomplete data instead of inventing a decision summary", () => {

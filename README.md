@@ -6,6 +6,30 @@ MicroVern explains unsigned Algorand transactions before signing. It is a determ
 
 The current scope, live-release record, and prioritized future iterations are in the [Product Requirements Document](docs/PRD.md).
 
+## Experience model
+
+MicroVern serves three different needs without forcing them into one crowded
+interface:
+
+- **Review** is the default for everyday wallet users: add or load a group,
+  run a free check, and read a short decision with the proposed value,
+  recipient, account-control change, and highest-priority concern.
+- **More security tools** are optional for advanced users: saved safeguards,
+  intent matching, local history, sharing, receipt verification, account
+  observations, and technical evidence stay available without interrupting the
+  first review.
+- **For agents** is separate for operators and developers. Agents use the API
+  or local MCP server with a pinned policy profile, recipient allowlist,
+  transaction limits, payment cap, and their own approved signer.
+
+The **Simple Review Mode** baseline is now implemented: progressive disclosure
+keeps the human console focused on the proposed value, recipient,
+account-control change, and highest-priority concern. A positive result means
+“matches your selected safeguards,” never that a transaction is universally
+safe. The next product priority is reliability and semantic coverage. Agents
+may become a high-volume source of inspections, but a human or operator always
+owns the policy, funding, and signing boundary.
+
 ## Why the name MicroVern
 
 **MicroVern** combines a focused transaction check before signing with **vern**,
@@ -222,7 +246,7 @@ on plain-language transaction review.
 
 ## Local verification coverage
 
-`npm test` currently runs 96 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 101 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 

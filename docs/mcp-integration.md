@@ -91,3 +91,21 @@ is forwarded.
    payment proof.
 8. Treat the returned report as decision support; independently verify it
    before any signing decision.
+
+## Operator setup checklist
+
+Configure these values once in the agent's own reviewed configuration, not in a
+prompt and not in a transaction payload:
+
+1. Select one versioned profile: `strict-usdc-v1`, `algo-only-v1`, or
+   `no-admin-actions-v1`.
+2. Set exact transaction limits and one or more exact recipient addresses.
+3. Pin the HTTPS MicroVern origin and the intended Algorand inspection network.
+4. Pin the x402 CAIP-2 payment network, official USDC ASA ID, receiver, and
+   maximum atomic payment amount after reviewing the service capabilities.
+5. Keep the signer outside MicroVern. Require the operator's wallet, HSM, or
+   signing service to approve any payment proof.
+
+For ready-to-copy request shapes, use the strict-USDC, ALGO-only, and
+no-administration recipes on the [Agent quick start](agents.html). Never let an
+agent replace any pinned value solely because it appeared in a quote or prompt.

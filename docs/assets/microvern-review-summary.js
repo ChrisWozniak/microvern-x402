@@ -53,15 +53,16 @@ export function createMicrovernReviewSummary(report, request) {
   if (!validReport(report)) throw new Error("A completed MicroVern inspection report is required.");
   const review = report.reviewSummary;
   const policy = request?.policy && typeof request.policy === "object" ? request.policy : {};
+  const hasFailedSafeguard = Object.values(report.policyEvaluation ?? {}).includes("failed");
   const control = controlFinding(report);
   const recipients = Array.isArray(review.recipients) ? review.recipients : [];
 
   return {
     decision: report.verdict === "block"
-      ? { label: "Do not sign yet", tone: "block" }
+      ? { label: hasFailedSafeguard ? "Blocked by your safeguards" : "Blocked — do not sign", tone: "block" }
       : report.verdict === "review"
-        ? { label: "Pause and confirm", tone: "review" }
-        : { label: "Safeguards passed", tone: "allow" },
+        ? { label: "Needs attention", tone: "review" }
+        : { label: "Matches your selected safeguards", tone: "allow" },
     movement: [
       { label: "Outgoing ALGO", value: `${review.totalAlgoSent ?? "0"} ALGO` },
       { label: "Outgoing USDC", value: `${review.totalUsdcSent ?? "0"} USDC` },

@@ -1,7 +1,7 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.8
-**Date:** 2026-09-26
+**Version:** 1.9
+**Date:** 2026-09-27
 **Status:** Living product plan; MainNet release record reconciled
 
 ## Product summary
@@ -36,12 +36,34 @@ and not convenient for automated agents to assess consistently.
 
 MicroVern serves:
 
-- **Wallet users and reviewers** who want an explanation before approving an
-  unsigned group.
+- **Everyday wallet users and reviewers** who want a short, trustworthy
+  explanation before approving an unsigned group. This is the primary product
+  experience.
+- **Advanced users** who occasionally need evidence hashes, saved safeguards,
+  intent comparison, account observations, sharing, and report verification.
 - **Wallet, application, and agent developers** who need a predictable,
   programmatic review step.
 - **AI agents and service clients** that can pay an HTTP x402 invoice for a
-  report without a conventional account or subscription.
+  report without a conventional account or subscription. They may become the
+  highest-volume source of inspections, while a human or operator remains the
+  owner of policy, funding, and signing authority.
+
+### Experience model
+
+MicroVern must not force three very different audiences through one dense
+screen. It has three deliberately separate product surfaces:
+
+| Surface | Audience | Product rule |
+| --- | --- | --- |
+| **Review** | Everyday wallet users | Default to a short, plain-language three-step decision journey. |
+| **More security tools** | Advanced users | Make powerful controls available on demand; do not place them before the first decision. |
+| **For agents** | Agent operators and developers | Provide API/MCP recipes, fixed boundaries, and integration guidance outside the human form. |
+
+An agent may create most requests in the future, but it is not an independent
+trust authority. Its operator must pin the policy profile, recipient allowlist,
+transaction limits, payment limits, and approved signer boundary. No surface
+may accept a seed phrase, private key, unrestricted payment authority, or a
+customer transaction signature.
 
 ## Goals and non-goals
 
@@ -111,7 +133,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 96 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
+| Automated coverage | Delivered | `npm test` runs 101 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
@@ -146,146 +168,121 @@ No future MainNet payment or production configuration change should occur
 without explicit user approval. TestNet validates implementation; it does not
 substitute for the recorded MainNet deployment and paid proof.
 
-## Prioritized post-release iterations
+## Revised prioritized post-release plan
 
-These are planned directions, not features currently claimed as available. Each
-needs a focused safety and design review before implementation begins.
+The product is moving from an MVP with many capabilities to a product with a
+clear path for each audience. These are planned directions, not features
+currently claimed as available. Each requires a focused safety and design
+review before implementation begins.
 
-### 1. Human inspection and payment flow
+### 1. Simple Review Mode — delivered baseline
 
-**Purpose:** provide a mobile-friendly, plain-language review flow while
-keeping signing and payment approval in the user's existing wallet.
+**Purpose:** make the default experience useful to an everyday wallet user
+without requiring them to understand protocol fields, reports, or x402.
 
-**Delivered foundation:** a mobile-friendly GitHub Pages review console begins with a no-spend guided demo of four fixed, synthetic unsigned TestNet groups: normal USDC payment, hidden rekey, asset close-out, and unapproved application call. It then validates a pasted unsigned group for free, builds a bounded policy, discloses an unpaid x402 quote, and renders a decision snapshot followed by a risk-first report with outgoing totals, recipients, fees, policy outcomes, evidence hashes, copy/download controls, and browser-local receipt verification. The snapshot highlights what leaves the wallet, the recipient count, account-control changes, ordered actions, and a comparison between the submitted safeguards and observed behavior. The TestNet Pera pilot can then request approval for exactly `$0.01` TestNet USDC from the pinned TestNet service. It rejects changed payment terms before Pera is asked to sign. The console does not custody a wallet, and Pera is asked only to sign the separate x402 payment transaction.
+**Delivered in this iteration:** the public console now presents its work as
+three steps, keeps basic network/group entry and the free check in the default
+path, and puts spending rules, service connection, report import, local receipt
+verification, decoded actions, evidence, and report controls behind clearly
+labeled optional details.
 
-**Remaining requirements:** complete and document a deliberate TestNet wallet payment test, then conduct a separate MainNet UX and security review before exposing browser MainNet payment. Continue to show the highest-risk actions first, total outgoing ALGO/USDC, recipients, fees, consequences, policy outcome, and raw technical details only on demand. Use plain language such as "changes signing authority" alongside the technical term "rekey". Never call a result "safe"; use "no configured rule triggered" instead.
+**Default three-step journey:**
 
-**Acceptance:** a demo client can submit a group, display its summary and
-warnings, obtain explicit payment approval in the user's wallet, then show the
-unchanged group for the user's own signing process. The delivered report shows
-its ruleset version, timestamp, request ID, and link to the settlement receipt.
-No key, mnemonic, or signing request reaches MicroVern.
+1. Add or load an unsigned transaction group.
+2. Run the free structural check.
+3. Read one plain-language decision: **Matches your selected safeguards**,
+   **Needs attention**, or **Blocked by your safeguards**.
 
-**Dependency:** stable public MainNet API and a documented client example.
+**Required visible facts:** what would leave the wallet if the group is signed;
+who would receive it; whether account control would change; and the highest
+priority finding. If a separate report payment has settled, show its exact
+`$0.01` amount, asset, receiver, and settlement separately from the unsigned
+group preview.
 
-### 2. Safe agent-payment client
+**Progressive disclosure:** move raw actions, policy rows, account-state
+observations, report hashes, receipts, history, sharing, and technical IDs to
+an **Advanced details** area or a separate tool. Never call a group “safe.” A
+positive result must say it matched the selected safeguards and still instruct
+the user to confirm the recipient and amount in their own wallet.
 
-**Purpose:** make paid inspection quick and dependable for automated callers
-without allowing blind or unbounded spending.
+**Acceptance:** a new user can understand the proposed transfer and the next
+safe action without reading a technical term. No payment, wallet connection,
+or advanced setting is required for the free check.
 
-**Delivered foundation:** [`src/agent-client.ts`](../src/agent-client.ts)
-provides a small TypeScript client built on the standard x402 fetch flow. It
-validates first, generates or accepts a retry idempotency key, pins an HTTPS
-service origin, rejects redirects, and filters payment requirements to the
-configured `exact` Algorand CAIP-2 network, official USDC ASA, receiver, and
-maximum atomic-USDC amount. It returns the report, idempotency key, correlation
-ID, and settlement transaction ID. Typed errors distinguish changed payment
-requirements, in-progress inspections, throttling, unavailability, and
-rejections. It requires a caller-supplied approved signer and never accepts a
-key as client configuration.
+### 2. Advanced security tools — delivered first consolidation
 
-**Remaining requirements:** run and document a first live integration from a
-dedicated agent wallet, including the operational handling of throttled or
-unavailable responses.
+**Purpose:** preserve strong capabilities for advanced users without making
+them the default human workflow.
 
-**Acceptance:** an agent pays at most once for one logical inspection, can
-recover a completed report after a network interruption, and receives the
-settlement transaction ID plus a report checksum. A payment is refused locally
-when the server's quote does not match the agent's configured limits.
+**Delivered foundation:** browser-local saved safeguards and trusted contacts,
+intent comparison, private local history, shareable report views, receipt
+verification, optional round-labeled account observations, versioned profiles,
+and on-demand report evidence are already available.
 
-**Dependency:** request-hash-bound durable idempotency and hardened MainNet
-service behavior.
+**Delivered in this iteration:** the primary navigation now groups existing
+power-user pages under **More security tools**, and the review console keeps
+its report import and local receipt verification behind the same optional
+language.
 
-### 3. Account-state and execution-context checks
+**Follow-on work:** show an advanced control only when it is relevant to a
+user’s current review. Do not add customer accounts or an end-user admin
+dashboard merely to organize these tools.
 
-**Purpose:** add current account, asset, and network context that raw bytes
-alone cannot provide.
+**Acceptance:** an advanced user can find every existing safeguard, while an
+everyday user can finish the default review without encountering a dense form.
 
-**Delivered foundation:** callers opt in with `accountStateChecks.consent`.
-With a configured HTTPS Algod endpoint for that network, MicroVern observes
-each sender's ledger-record presence, reported ALGO balance, and opt-in state
-for ASAs touched by the submitted group. The returned context names the
-Algod-reported round and observation time. Without configuration or on a
-timeout/error, it returns a clear `not configured` or `not evaluated` result;
-the inspection verdict never treats either as a safety claim.
+### 3. Agent operator path — delivered quick-start layer
 
-**Remaining requirements:** add careful balance/minimum-balance and execution
-simulation checks only after defining their observation source, round semantics,
-latency budget, and privacy implications.
+**Purpose:** make MicroVern a dependable, high-volume review service for
+agents while keeping the operator in control of risk and funds.
 
-**Deployment requirement:** configure the appropriate pinned HTTPS
-`MICROVERN_ALGOD_MAINNET_URL` and/or `MICROVERN_ALGOD_TESTNET_URL`. No implicit
-third-party node is used.
+**Delivered foundation:** the pinned TypeScript client, local stdio MCP server,
+versioned profiles, exact recipient allowlists, transaction/payment caps,
+idempotency, report binding, webhooks, and the public Agent Quick Start already
+support the `validate_transaction` → `get_quote` → `inspect_transaction`
+sequence.
 
-### 4. Named, versioned policy profiles
+**Delivered in this iteration:** the public Agent Quick Start now supplies
+copyable strict-USDC, ALGO-only, and no-administration MCP request templates.
+The MCP guide includes an operator setup checklist that keeps configuration
+outside prompts and transaction payloads.
 
-**Purpose:** let integrators apply documented review rules without forking the
-core analyzer.
+**Follow-on work:** document a deliberate live integration from a dedicated
+agent wallet and keep recovery behavior for timeouts, throttling, and changed
+quotes explicit and bounded.
 
-**Delivered foundation:** `strict-usdc-v1`, `algo-only-v1`, and
-`no-admin-actions-v1` resolve to deterministic, network-aware policies before
-payment. They cover spend limits, ASA allowlists, rekey/close-out defaults, and
-administrative-action prohibition. The profile ID and version are included in
-the report and its request-hash/checksum binding. A profile cannot be mixed
-with an ad-hoc policy, and unknown IDs fail validation before payment.
+**Acceptance:** an operator can configure one known profile, exact recipients,
+transaction limits, and a maximum report-payment amount once. The agent cannot
+use MicroVern outside those boundaries or provide it a wallet secret.
 
-**Acceptance:** callers can select a documented profile; the same payload and
-policy version produce the same findings; invalid or unknown profiles fail
-validation before payment. Delivered and covered by deterministic tests.
+### 4. Reliability and semantic coverage — continuous priority
 
-**Dependency:** stable baseline findings and a backwards-compatible versioning
-policy.
+**Purpose:** ensure the product remains dependable as adoption and transaction
+variety grow.
 
-### 5. MCP interface for agent clients
+**Next work:** extend the adversarial regression corpus for malformed groups,
+fee pooling, rekeys, close-outs, asset edge cases, idempotency, payment
+middleware failures, and every production issue found. Expand the known
+application registry only from authoritative protocol documentation with
+versioned entries and fixtures. Keep unknown apps and methods visibly unknown.
 
-**Purpose:** make inspection discoverable and convenient for agent workflows
-without replacing the HTTP API or taking custody of a wallet.
+**Acceptance:** every resolved issue has a deterministic regression test; a
+recognized app explanation cannot silently become a claim about an unrecognized
+method; and availability/latency metrics remain privacy-preserving.
 
-**Delivered foundation:** the local stdio MCP server exposes
-`validate_transaction`, `get_quote`, and `inspect_transaction`. It requires a
-known policy profile, explicit ALGO/USDC transaction caps, and exact recipient
-allowlist for every call. The paid steps additionally require a pinned Algorand CAIP-2 network, USDC ASA,
-receiver, and atomic payment cap. It returns an approval-required quote when
-no externally created payment proof is supplied and never accepts a seed phrase
-or private key.
+### 5. MainNet browser payment — deliberately gated
 
-**Acceptance:** an MCP client can validate, quote, and request an inspection
-through the same public contract with visible spend and recipient boundaries.
-Delivered with deterministic boundary and binding tests.
+**Purpose:** consider a human MainNet x402 payment journey only after the
+simple review experience and TestNet interaction are stable.
 
-**Dependency:** hardened MainNet service behavior and a clear agent-payment UX.
+**Requirements before approval:** dedicated UX/security review, clear separate
+payment disclosure, fresh-quote and changed-term rejection, capped amount,
+recipient/network/asset pinning, wallet-specific compatibility testing, and a
+deliberate end-to-end MainNet test authorized by the operator.
 
-### 6. Recognized application-call semantics
-
-**Purpose:** turn opaque application calls into useful descriptions where
-verified knowledge of a protocol or application exists.
-
-**Delivered foundation:** registry `2026-09-v1` maps the documented Tinyman V2
-validator IDs on MainNet and TestNet, and its `swap`, `add_initial_liquidity`,
-`add_liquidity`, and `remove_liquidity` selectors, to cautious plain-language
-descriptions. The report includes registry version, app ID, recognition state,
-method when known, and the provider documentation link. Unknown applications
-and unknown methods are never inferred from their names.
-
-**Acceptance:** supported patterns have fixtures and regression tests;
-unrecognized calls are never described as understood; registry changes are
-versioned and reviewable. Delivered for the initial Tinyman V2 entries.
-
-**Dependency:** a sustainable registry-maintenance process and
-protocol-specific fixtures.
-
-### 7. Expanded adversarial regression corpus
-
-**Purpose:** preserve reliability as the analyzer and policy surface grow.
-
-**Requirements:** add fixtures for malformed groups, fee pooling, rekeying,
-close-outs, asset edge cases, mixed types, concurrency, idempotency, and
-payment-middleware failures.
-
-**Acceptance:** every resolved issue adds a deterministic regression test; the
-suite runs without a live payment and remains part of release checks.
-
-**Dependency:** none; this grows continuously alongside other iterations.
+**Non-negotiable boundary:** a wallet may sign the separately disclosed x402
+report payment, but MicroVern never receives a seed phrase or private key and
+never signs or broadcasts the customer transaction under review.
 
 ## Success measures and guardrails
 

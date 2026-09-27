@@ -26,7 +26,22 @@
   "transactionLimits": { "maxAlgoSend": 0, "maxUsdcSend": 0.01 },
   "allowedRecipients": ["&lt;approved 58-character Algorand address&gt;"]
 }</pre><button type="button" data-copy="strictRecipe">Copy input template</button></div>
-      <div class="recipe"><h3>Choose the profile that matches the job</h3><p><strong>ALGO-only:</strong> use <code>algo-only-v1</code> and supply a deliberate ALGO limit. <strong>No administration:</strong> use <code>no-admin-actions-v1</code> when asset or application administrative changes must remain blocked. Every recipe still needs exact recipient and spend boundaries.</p></div>
+      <details class="recipe"><summary><strong>ALGO-only recipe</strong></summary><p>Use <code>algo-only-v1</code> when the group must contain no ASA actions. Set a deliberate ALGO limit and exact recipient allowlist; do not treat the profile as a spending limit by itself.</p><pre id="algoRecipe">{
+  "serviceUrl": "https://microvern-x402-mainnet.onrender.com",
+  "network": "algorand-mainnet",
+  "unsignedTransactionGroup": "&lt;base64 unsigned group&gt;",
+  "policyProfile": "algo-only-v1",
+  "transactionLimits": { "maxAlgoSend": 0.1, "maxUsdcSend": 0 },
+  "allowedRecipients": ["&lt;approved 58-character Algorand address&gt;"]
+}</pre><button type="button" data-copy="algoRecipe">Copy ALGO-only template</button></details>
+      <details class="recipe"><summary><strong>No-administration recipe</strong></summary><p>Use <code>no-admin-actions-v1</code> when rekeys, close-outs, asset administration, clawbacks, freezes, and application administration must remain blocked. Supply the asset and spending rules that fit the specific job.</p><pre id="adminRecipe">{
+  "serviceUrl": "https://microvern-x402-mainnet.onrender.com",
+  "network": "algorand-mainnet",
+  "unsignedTransactionGroup": "&lt;base64 unsigned group&gt;",
+  "policyProfile": "no-admin-actions-v1",
+  "transactionLimits": { "maxAlgoSend": 0.1, "maxUsdcSend": 1 },
+  "allowedRecipients": ["&lt;approved 58-character Algorand address&gt;"]
+}</pre><button type="button" data-copy="adminRecipe">Copy no-administration template</button></details>
     </section><aside class="panel" aria-labelledby="boundaries-title"><h2 id="boundaries-title">Required safeguards</h2><ul class="boundaries"><li><strong>Known profile:</strong> a versioned profile, not an unreviewed free-form rule.</li><li><strong>Transaction caps:</strong> explicit maximum outgoing ALGO and USDC.</li><li><strong>Recipient allowlist:</strong> at least one exact address the agent may consider.</li><li><strong>Payment trust:</strong> pinned x402 network, USDC ASA, receiver, and atomic payment cap.</li><li><strong>Separate signer:</strong> the agent’s wallet/HSM decides whether to create a payment proof.</li><li><strong>Freshness:</strong> re-review a changed group; reuse an idempotency key only for the same logical inspection.</li></ul><details><summary>What agents must not do</summary><p class="helper">Do not put a seed phrase, private key, customer transaction signature, or unrestricted payment authority into MicroVern. An <em>allow</em> result is decision support, not authorization to sign.</p></details><div class="links"><a class="button" href="./mcp-integration.md">MCP setup guide</a><a class="button" href="./agent-integration.md">TypeScript client guide</a></div></aside></div>
     <footer class="footer">For developers and agent operators. Human users can stay in the <a href="./">Review console</a>; this page does not add wallet access, custody, or a public signing service.</footer>
   </main>
