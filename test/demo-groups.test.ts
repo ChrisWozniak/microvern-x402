@@ -11,6 +11,7 @@ describe("guided demo groups", () => {
       "suspicious-app-call",
     ]);
     expect(MICROVERN_DEMO_GROUPS.every((demo) => demo.network === "algorand-testnet")).toBe(true);
+    expect(findMicrovernDemo("normal-usdc-payment")?.description).toContain("Nothing is sent");
   });
 
   it("keeps every demo unsigned and aligned with its teaching outcome", () => {

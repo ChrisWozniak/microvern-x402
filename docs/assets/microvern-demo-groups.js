@@ -6,7 +6,7 @@ export const MICROVERN_DEMO_GROUPS = Object.freeze([
   Object.freeze({
     id: "normal-usdc-payment",
     title: "Normal USDC payment",
-    description: "A 2.50 TestNet USDC transfer within a 3 USDC guardrail.",
+    description: "A simulated, unsigned 2.50 TestNet USDC payment — below the $3 USDC spending limit. Nothing is sent.",
     expected: "allow",
     learning: "See a normal asset payment and the exact amount, recipient, and fee MicroVern identifies.",
     network: "algorand-testnet",
