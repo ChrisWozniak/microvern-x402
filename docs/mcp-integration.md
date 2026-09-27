@@ -5,6 +5,10 @@ tools, but has no wallet, seed phrase, private key, or signing configuration.
 Run it beside the agent that owns an approved wallet or HSM boundary; do not
 deploy this process as an unauthenticated public service.
 
+For the shortest operator-facing overview, start with the public
+[Agent quick start](agents.html). This guide remains the source of truth for
+connection setup and the complete tool contract.
+
 ## Start it
 
 ```powershell

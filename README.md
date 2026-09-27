@@ -215,6 +215,11 @@ approval for public round-labeled account observations. MicroVern never accepts 
 [MCP integration guide](docs/mcp-integration.md) for connection setup, the
 three supported profiles, and the safe agent sequence.
 
+For a compact, copyable overview of the three-tool workflow and its required
+boundaries, see the public [Agent quick start](docs/agents.html). It is a
+separate surface for agent operators; the human review console remains focused
+on plain-language transaction review.
+
 ## Local verification coverage
 
 `npm test` currently runs 96 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
