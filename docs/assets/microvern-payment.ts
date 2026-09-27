@@ -18,6 +18,7 @@ interface InspectionRequest {
 }
 
 interface PaymentRequired {
+  readonly error?: string;
   readonly accepts?: readonly BrowserPaymentRequirement[];
 }
 
@@ -43,9 +44,20 @@ function decodePaymentRequired(value: string | null): PaymentRequired {
   }
 }
 
-function responseError(body: unknown, status: number): Error {
+export function responseError(body: unknown, status: number, headers?: Headers): Error {
   if (typeof body === "object" && body !== null && "error" in body && typeof body.error === "string") {
     return new Error(body.error);
+  }
+  if (status === 402 && headers !== undefined) {
+    try {
+      const reason = decodePaymentRequired(headers.get("payment-required")).error;
+      if (reason !== undefined && reason.trim().length > 0) {
+        return new Error(`Payment was not accepted: ${reason}. No new payment was settled.`);
+      }
+    } catch {
+      // Keep the generic HTTP status below when an intermediary omits or
+      // corrupts the optional diagnostic header.
+    }
   }
   return new Error(`Paid inspection returned HTTP ${status}.`);
 }
@@ -142,7 +154,7 @@ export async function payForMicrovernTestnetInspection(
     body: JSON.stringify(request),
   });
   const body = await response.json().catch(() => undefined);
-  if (!response.ok) throw responseError(body, response.status);
+  if (!response.ok) throw responseError(body, response.status, response.headers);
   if (
     typeof body !== "object" || body === null
     || !("verdict" in body) || !("requestHash" in body) || !("reportChecksum" in body)
