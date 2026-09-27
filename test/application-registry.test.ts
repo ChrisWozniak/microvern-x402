@@ -17,6 +17,23 @@ describe("application registry", () => {
     expect(explanation.description).toContain("asset swap");
   });
 
+  it("recognizes only the documented Tinyman V2 bootstrap selector", () => {
+    const bootstrap = explainApplicationCall(
+      "algorand-mainnet",
+      1_002_541_853,
+      [new TextEncoder().encode("bootstrap")],
+    );
+    expect(bootstrap).toMatchObject({
+      registryVersion: APPLICATION_REGISTRY_VERSION,
+      recognition: "recognized",
+      method: "bootstrap pool",
+    });
+    expect(bootstrap.consequences.join(" ")).toContain("rekey");
+    expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new TextEncoder().encode("Bootstrap")])).toMatchObject({
+      recognition: "known-application-unknown-method",
+    });
+  });
+
   it("does not infer a meaning for unknown applications or methods", () => {
     expect(explainApplicationCall("algorand-mainnet", 1, []).recognition).toBe("unknown");
     expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new TextEncoder().encode("unregistered")]).recognition).toBe("known-application-unknown-method");

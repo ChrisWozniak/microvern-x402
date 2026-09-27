@@ -171,13 +171,22 @@ when a new observation is genuinely required.
 ## Recognized application calls
 
 Application calls are always treated conservatively. Registry
-`2026-09-v1` recognizes the documented Tinyman V2 validator application on
+`2026-09-v2` recognizes the documented Tinyman V2 validator application on
 MainNet (`1002541853`) and TestNet (`148607000`), with cautious explanations
-for `swap`, `add_initial_liquidity`, `add_liquidity`, and
+for `bootstrap`, `swap`, `add_initial_liquidity`, `add_liquidity`, and
 `remove_liquidity`. The report includes the registry version, application ID,
 recognition state, and a documentation reference. An unlisted application—or
 an unlisted method on a known application—remains visibly unknown rather than
 being guessed from its name.
+
+## Privacy-preserving operational metrics
+
+`GET /v1/metrics` exposes only process-local aggregate service health data:
+validation and report outcomes, idempotency outcomes, payment-challenge counts,
+and completed-report latency buckets. It deliberately never receives or retains
+unsigned transaction data, addresses, request hashes, IP addresses, wallet
+identifiers, payment proofs, or exception text. The counters reset on every
+service restart and are not an audit log or customer analytics system.
 
 ## Agent integration kit
 
@@ -246,7 +255,7 @@ on plain-language transaction review.
 
 ## Local verification coverage
 
-`npm test` currently runs 101 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
+`npm test` currently runs 106 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; privacy-preserving aggregate metrics; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; fee pooling; recipient summaries for close-outs; same-account and clawback balance accounting; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, application actions, and policy limits); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 

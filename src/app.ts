@@ -16,6 +16,7 @@ import { hashInspectionRequest } from "./binding.js";
 import { loadPaymentConfig, type PaymentConfig } from "./config.js";
 import { ValidationError } from "./errors.js";
 import { InMemoryIdempotencyStore, type IdempotencyStore } from "./idempotency.js";
+import { PrivacyPreservingMetrics } from "./metrics.js";
 import { listPolicyProfiles, resolvePolicyProfile } from "./policy-profiles.js";
 import { parseInspectionRequest } from "./validation.js";
 import { RULESET_VERSION } from "./types.js";
@@ -198,18 +199,26 @@ function addInspectionGuards(
   app: Hono,
   idempotencyStore: IdempotencyStore,
   allowUnpaidIdempotency: boolean,
+  metrics: PrivacyPreservingMetrics,
 ): void {
   const unpaidWindows = new Map<string, RateLimitWindow>();
 
   app.use("/v1/inspect-transaction", async (c, next) => {
-    if (!bodyLengthWithinLimit(c)) return c.json({ error: "Request body must not exceed 131072 bytes." }, 413);
+    if (!bodyLengthWithinLimit(c)) {
+      metrics.recordInspectionRejected();
+      return c.json({ error: "Request body must not exceed 131072 bytes." }, 413);
+    }
     const body = await c.req.raw.clone().arrayBuffer();
-    if (body.byteLength > MAX_REQUEST_BODY_BYTES) return c.json({ error: "Request body must not exceed 131072 bytes." }, 413);
+    if (body.byteLength > MAX_REQUEST_BODY_BYTES) {
+      metrics.recordInspectionRejected();
+      return c.json({ error: "Request body must not exceed 131072 bytes." }, 413);
+    }
     return next();
   });
 
   app.use("/v1/inspect-transaction", async (c, next) => {
-    if (!hasPaymentProof(c)) {
+    if (!allowUnpaidIdempotency && !hasPaymentProof(c)) {
+      metrics.recordPaymentChallenge();
       const now = Date.now();
       const identity = requestIdentity(c);
       const window = unpaidWindows.get(identity);
@@ -219,6 +228,7 @@ function addInspectionGuards(
       activeWindow.count += 1;
       unpaidWindows.set(identity, activeWindow);
       if (activeWindow.count > UNPAID_REQUEST_LIMIT) {
+        metrics.recordRateLimited();
         c.header("Retry-After", String(Math.ceil((activeWindow.resetAt - now) / 1000)));
         return c.json({ error: "Too many unpaid inspection requests. Try again later." }, 429);
       }
@@ -229,7 +239,10 @@ function addInspectionGuards(
   app.use("/v1/inspect-transaction", async (c, next) => {
     const key = c.req.header("idempotency-key");
     if (key === undefined) return next();
-    if (!validIdempotencyKey(key)) return c.json({ error: "Idempotency-Key must contain 8 to 128 URL-safe characters." }, 400);
+    if (!validIdempotencyKey(key)) {
+      metrics.recordInspectionRejected();
+      return c.json({ error: "Idempotency-Key must contain 8 to 128 URL-safe characters." }, 400);
+    }
 
     if (!allowUnpaidIdempotency && !hasPaymentProof(c)) return next();
 
@@ -237,12 +250,17 @@ function addInspectionGuards(
     try {
       requestHash = hashInspectionRequest(parseInspectionRequest(JSON.parse(await c.req.raw.clone().text())));
     } catch (error) {
-      if (error instanceof ValidationError) return c.json({ error: error.message }, 400);
+      if (error instanceof ValidationError) {
+        metrics.recordInspectionRejected();
+        return c.json({ error: error.message }, 400);
+      }
+      metrics.recordInspectionRejected();
       return c.json({ error: "Request body must be valid JSON." }, 400);
     }
 
     const acquisition = await idempotencyStore.acquire(key, requestHash, IDEMPOTENCY_TTL_MS);
     if (acquisition.state === "completed") {
+      metrics.recordIdempotency("replayed");
       c.header("X-Idempotent-Replay", "true");
       const reportId = reportIdFromBody(acquisition.response.body);
       if (reportId !== undefined) c.header("X-MicroVern-Report-Id", reportId);
@@ -250,10 +268,12 @@ function addInspectionGuards(
       return c.json(acquisition.response.body, acquisition.response.status);
     }
     if (acquisition.state === "in-progress") {
+      metrics.recordIdempotency("inProgress");
       c.header("Retry-After", "2");
       return c.json({ error: "An inspection with this Idempotency-Key is already being processed." }, 409);
     }
     if (acquisition.state === "conflict") {
+      metrics.recordIdempotency("conflict");
       return c.json({ error: "This Idempotency-Key is already bound to a different inspection request." }, 409);
     }
 
@@ -314,6 +334,7 @@ function addRoutes(
   facilitatorClient: FacilitatorClient | undefined,
   paymentEnabled: boolean,
   accountStateObserver: AccountStateObserver,
+  metrics: PrivacyPreservingMetrics,
 ): void {
   const advertisedConfig = paymentConfig ?? loadPaymentConfig();
 
@@ -368,17 +389,22 @@ function addRoutes(
     });
   });
 
+  app.get("/v1/metrics", (c) => c.json(metrics.snapshot()));
+
   app.post("/v1/validate-transaction", async (c) => {
     try {
       parseInspectionRequest(await readRequestJson(c));
+      metrics.recordValidation(true);
       return c.json({ valid: true }, 200);
     } catch (error) {
+      metrics.recordValidation(false);
       if (error instanceof ValidationError) return c.json({ error: error.message }, 400);
       return c.json({ error: "Unable to validate request." }, 500);
     }
   });
 
   app.post("/v1/inspect-transaction", async (c) => {
+    const startedAt = performance.now();
     try {
       const request = parseInspectionRequest(await readRequestJson(c));
       const selectedProfile = request.policyProfile === undefined ? undefined : resolvePolicyProfile(request.policyProfile, request.network);
@@ -393,9 +419,11 @@ function addRoutes(
         selectedProfile?.profile,
         accountState,
       );
+      metrics.recordInspection(report.verdict, performance.now() - startedAt);
       c.header("X-MicroVern-Report-Id", report.requestHash);
       return c.json(report);
     } catch (error) {
+      metrics.recordInspectionRejected();
       if (error instanceof ValidationError) return c.json({ error: error.message }, 400);
       return c.json({ error: "Internal analysis error." }, 500);
     }
@@ -436,15 +464,16 @@ export function createPaymentProtectedService(
     .registerExtension(bazaarResourceServerExtension);
   const paymentServer = new x402HTTPResourceServer(resourceServer, protectedRoutes(paymentConfig));
   const app = new Hono();
+  const metrics = new PrivacyPreservingMetrics();
 
   addBrowserReviewCors(app);
   app.use(async (c, next) => {
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();
   });
-  addInspectionGuards(app, idempotencyStore, false);
+  addInspectionGuards(app, idempotencyStore, false, metrics);
   app.use(paymentMiddlewareFromHTTPServer(paymentServer, undefined, undefined, false));
-  addRoutes(app, paymentConfig, facilitatorClient, true, accountStateObserver);
+  addRoutes(app, paymentConfig, facilitatorClient, true, accountStateObserver, metrics);
 
   return {
     app,
@@ -458,6 +487,7 @@ export function createPaymentProtectedService(
 export function createLocalAnalysisApp(
   idempotencyStore: IdempotencyStore = new InMemoryIdempotencyStore(),
   accountStateObserver: AccountStateObserver = createAccountStateObserver(),
+  metrics: PrivacyPreservingMetrics = new PrivacyPreservingMetrics(),
 ): Hono {
   const localApp = new Hono();
   addBrowserReviewCors(localApp);
@@ -465,8 +495,8 @@ export function createLocalAnalysisApp(
     c.header("X-Request-Id", c.req.header("x-request-id") ?? randomUUID());
     await next();
   });
-  addInspectionGuards(localApp, idempotencyStore, true);
-  addRoutes(localApp, undefined, undefined, false, accountStateObserver);
+  addInspectionGuards(localApp, idempotencyStore, true, metrics);
+  addRoutes(localApp, undefined, undefined, false, accountStateObserver, metrics);
   return localApp;
 }
 

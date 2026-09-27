@@ -27,6 +27,13 @@ paths:
       responses:
         '200':
           description: Service capabilities.
+  /v1/metrics:
+    get:
+      summary: Privacy-preserving operational metrics
+      description: Process-local aggregate counts and latency buckets. The endpoint never stores or returns transaction payloads, addresses, request hashes, IP addresses, wallet identifiers, payment proofs, or exception text. Counters reset when the service restarts.
+      responses:
+        '200':
+          description: Aggregated, restart-scoped service metrics.
   /v1/validate-transaction:
     post:
       summary: Free bounded structural preflight
@@ -160,10 +167,11 @@ components:
           properties:
             transactionCount: { type: integer, minimum: 1 }
             totalAlgoSent: { type: string, description: Excludes any ALGO close-out remainder, which is separately flagged. }
-            totalUsdcSent: { type: string }
+            totalUsdcSent: { type: string, description: Outgoing USDC from the transaction sender. Excludes clawbacks from another account and same-account transfers. }
             totalFeeAlgo: { type: string }
             recipients:
               type: array
+              description: Direct recipients and any ALGO or ASA close-out destination identified in the group.
               items: { type: string }
             assetIds:
               type: array

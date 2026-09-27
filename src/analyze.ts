@@ -129,9 +129,13 @@ export function inspectUnsignedTransaction(
     if (txnType === "pay") {
       const payment = txn.payment;
       if (payment === undefined) throw new ValidationError("Decoded payment transaction is missing payment fields.");
-      algoSent += payment.amount;
       recipients.add(payment.receiver.toString());
-      actions.push({ index: transactionIndex, type: "payment", description: `Send ${formatAmount(payment.amount)} ALGO to ${payment.receiver.toString()}.`, consequences: [`Your ALGO balance decreases by ${formatAmount(payment.amount)} ALGO plus the transaction fee.`] });
+      if (payment.receiver.toString() === txn.sender.toString()) {
+        actions.push({ index: transactionIndex, type: "payment", description: `Move ${formatAmount(payment.amount)} ALGO within the same account.`, consequences: ["No ALGO leaves the sender account, but the transaction fee is still charged."] });
+      } else {
+        algoSent += payment.amount;
+        actions.push({ index: transactionIndex, type: "payment", description: `Send ${formatAmount(payment.amount)} ALGO to ${payment.receiver.toString()}.`, consequences: [`Your ALGO balance decreases by ${formatAmount(payment.amount)} ALGO plus the transaction fee.`] });
+      }
     } else if (txnType === "axfer") {
       const transfer = txn.assetTransfer;
       if (transfer === undefined) throw new ValidationError("Decoded asset transfer is missing asset-transfer fields.");
@@ -139,13 +143,14 @@ export function inspectUnsignedTransaction(
       assetIds.add(assetId);
       assetTransactionIndexes.set(assetId, transactionIndex);
       const usdcId = network === "algorand-mainnet" ? MAINNET_USDC_ASSET_ID : TESTNET_USDC_ASSET_ID;
-      if (assetId === usdcId) usdcSent += transfer.amount;
       const assetName = assetId === usdcId ? "USDC" : `asset ${assetId}`;
       const isOptIn = transfer.amount === 0n && transfer.receiver.toString() === txn.sender.toString() && transfer.assetSender === undefined && transfer.closeRemainderTo === undefined;
       if (isOptIn) {
         actions.push({ index: transactionIndex, type: "asset-opt-in", description: `Opt into ${assetName}.`, consequences: ["Your account will begin holding this asset and its minimum balance requirement."] });
       } else if (transfer.closeRemainderTo !== undefined) {
         recipients.add(transfer.receiver.toString());
+        recipients.add(transfer.closeRemainderTo.toString());
+        if (assetId === usdcId && transfer.receiver.toString() !== txn.sender.toString()) usdcSent += transfer.amount;
         actions.push({ index: transactionIndex, type: "asset-opt-out", description: `Transfer ${formatAmount(transfer.amount)} ${assetName} to ${transfer.receiver.toString()} and close the remaining asset balance to ${transfer.closeRemainderTo.toString()}.`, consequences: [`Your ${assetName} holding will be removed after its remaining balance is transferred.`] });
       } else if (transfer.assetSender !== undefined) {
         recipients.add(transfer.receiver.toString());
@@ -153,7 +158,12 @@ export function inspectUnsignedTransaction(
         pushFinding(findings, { code: "ASSET_CLAWBACK", severity: "high", transactionIndex, message: `Asset ${assetId} is using clawback authority to transfer from ${transfer.assetSender.toString()}.` });
       } else {
         recipients.add(transfer.receiver.toString());
-        actions.push({ index: transactionIndex, type: "asset-transfer", description: `Send ${formatAmount(transfer.amount)} ${assetName} to ${transfer.receiver.toString()}.`, consequences: [`Your ${assetName} balance decreases by ${formatAmount(transfer.amount)}.`] });
+        if (transfer.receiver.toString() === txn.sender.toString()) {
+          actions.push({ index: transactionIndex, type: "asset-transfer", description: `Move ${formatAmount(transfer.amount)} ${assetName} within the same account.`, consequences: [`No ${assetName} leaves the sender account.`] });
+        } else {
+          if (assetId === usdcId) usdcSent += transfer.amount;
+          actions.push({ index: transactionIndex, type: "asset-transfer", description: `Send ${formatAmount(transfer.amount)} ${assetName} to ${transfer.receiver.toString()}.`, consequences: [`Your ${assetName} balance decreases by ${formatAmount(transfer.amount)}.`] });
+        }
       }
     } else if (txnType === "appl") {
       const applicationCall = txn.applicationCall;
@@ -199,8 +209,14 @@ export function inspectUnsignedTransaction(
     }
 
     if (rekeyTo !== undefined) pushFinding(findings, { code: "REKEY_PRESENT", severity: "critical", transactionIndex, message: `The account's authorized signer will change to ${rekeyTo}.` });
-    if (closeRemainderTo !== undefined) pushFinding(findings, { code: "ALGO_CLOSE_OUT", severity: "critical", transactionIndex, message: `The sender's remaining ALGO will close out to ${closeRemainderTo}.` });
-    if (assetCloseTo !== undefined) pushFinding(findings, { code: "ASSET_CLOSE_OUT", severity: "critical", transactionIndex, message: `The remaining asset balance will close out to ${assetCloseTo}.` });
+    if (closeRemainderTo !== undefined) {
+      recipients.add(closeRemainderTo);
+      pushFinding(findings, { code: "ALGO_CLOSE_OUT", severity: "critical", transactionIndex, message: `The sender's remaining ALGO will close out to ${closeRemainderTo}.` });
+    }
+    if (assetCloseTo !== undefined) {
+      recipients.add(assetCloseTo);
+      pushFinding(findings, { code: "ASSET_CLOSE_OUT", severity: "critical", transactionIndex, message: `The remaining asset balance will close out to ${assetCloseTo}.` });
+    }
   }
 
   const algoLimitBreached = policy.maxAlgoSend !== undefined && algoSent > BigInt(Math.round(policy.maxAlgoSend * MICROALGOS_PER_ALGO));

@@ -1,6 +1,6 @@
 import algosdk from "algosdk";
 import { describe, expect, it } from "vitest";
-import { app, createPaymentProtectedService } from "../src/app.js";
+import { app, createLocalAnalysisApp, createPaymentProtectedService } from "../src/app.js";
 import {
   GOPLAUSIBLE_ALGORAND_MAINNET_CAIP2,
   GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2,
@@ -283,6 +283,31 @@ describe("MicroVern Stage 1 API", () => {
     expect(await response.json()).toEqual({ valid: true });
   });
 
+  it("exposes only restart-scoped aggregate operational metrics", async () => {
+    const metricsApp = createLocalAnalysisApp();
+    const txn = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, suggestedParams });
+    const inspection = requestFor(txn);
+    expect((await metricsApp.request("/v1/validate-transaction", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: await inspection.text(),
+    })).status).toBe(200);
+    expect((await metricsApp.request(requestFor(txn))).status).toBe(200);
+
+    const metrics = await (await metricsApp.request("/v1/metrics")).json();
+    expect(metrics).toMatchObject({
+      metricsVersion: "2026-09-v1",
+      storage: "in-memory",
+      resetsOnRestart: true,
+      validations: { accepted: 1, rejected: 0 },
+      inspections: { allow: 1, review: 0, block: 0 },
+      completedInspectionLatencyMs: { under100: 1 },
+    });
+    expect(metrics.privacy.neverCollects).toEqual(expect.arrayContaining(["unsigned transaction payloads", "addresses", "payment proofs"]));
+    expect(JSON.stringify(metrics)).not.toContain(sender.addr.toString());
+    expect(JSON.stringify(metrics)).not.toContain(receiver.addr.toString());
+  });
+
   it("requires explicit consent and transparently reports when account observations are not configured", async () => {
     const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, assetIndex: 10_458_941, suggestedParams });
     const body = await requestFor(txn).json() as Record<string, unknown>;
@@ -429,6 +454,16 @@ describe("MicroVern Stage 1 API", () => {
     expect(report.findings.map((finding: { code: string }) => finding.code)).toContain("ALGO_CLOSE_OUT");
   });
 
+  it("includes every close-out destination in the recipient summary", async () => {
+    const paymentCloseTarget = algosdk.generateAccount().addr;
+    const assetCloseTarget = algosdk.generateAccount().addr;
+    const payment = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, closeRemainderTo: paymentCloseTarget, suggestedParams });
+    const asset = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, assetIndex: 99, closeRemainderTo: assetCloseTarget, suggestedParams });
+    algosdk.assignGroupID([payment, asset]);
+    const report = await (await app.request(requestForGroup([payment, asset]))).json();
+    expect(report.reviewSummary.recipients).toEqual(expect.arrayContaining([receiver.addr.toString(), paymentCloseTarget.toString(), assetCloseTarget.toString()]));
+  });
+
   it("labels an asset close-out as an opt-out and blocks it by default", async () => {
     const txn = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 1, assetIndex: 99, closeRemainderTo: algosdk.generateAccount().addr, suggestedParams });
     const report = await (await app.request(requestFor(txn))).json();
@@ -444,6 +479,15 @@ describe("MicroVern Stage 1 API", () => {
     const report = await (await app.request(requestForGroup([clawback, freeze]))).json();
     expect(report.verdict).toBe("review");
     expect(report.findings.map((finding: { code: string }) => finding.code)).toEqual(expect.arrayContaining(["ASSET_CLAWBACK", "ASSET_FREEZE"]));
+  });
+
+  it("does not present clawed-back or self-transferred USDC as leaving the sender wallet", async () => {
+    const clawback = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, assetSender: algosdk.generateAccount().addr, amount: 2_500_000, assetIndex: 10_458_941, suggestedParams });
+    const selfTransfer = algosdk.makeAssetTransferTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: sender.addr, amount: 1_000_000, assetIndex: 10_458_941, suggestedParams });
+    algosdk.assignGroupID([clawback, selfTransfer]);
+    const report = await (await app.request(requestForGroup([clawback, selfTransfer]))).json();
+    expect(report.reviewSummary.totalUsdcSent).toBe("0");
+    expect(report.actions.map((action: { description: string }) => action.description)).toEqual(expect.arrayContaining([expect.stringContaining("within the same account")]));
   });
 
   it("explains application completion and safely displayable arguments", async () => {
@@ -487,6 +531,14 @@ describe("MicroVern Stage 1 API", () => {
     const report = await response.json();
     expect(report.verdict).toBe("block");
     expect(report.actions).toHaveLength(2);
+  });
+
+  it("accounts for a pooled group fee even when another transaction has no fee", async () => {
+    const feePayer = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 0, suggestedParams: { ...suggestedParams, fee: 2_000 } });
+    const zeroFee = algosdk.makePaymentTxnWithSuggestedParamsFromObject({ sender: sender.addr, receiver: receiver.addr, amount: 0, suggestedParams: { ...suggestedParams, fee: 0, minFee: 0 } });
+    algosdk.assignGroupID([feePayer, zeroFee]);
+    const report = await (await app.request(requestForGroup([feePayer, zeroFee]))).json();
+    expect(report.reviewSummary.totalFeeAlgo).toBe("0.002");
   });
 
   it("accepts a 16-transaction group and rejects a 17-transaction group", async () => {
@@ -538,10 +590,13 @@ describe("MicroVern Stage 1 API", () => {
   });
 
   it("throttles repeated unpaid inspection requests without recording payloads", async () => {
+    const config = requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString() });
+    const service = createPaymentProtectedService(config, supportedTestnetFacilitator());
+    await service.initialize();
     const headers = { "content-type": "application/json", "x-forwarded-for": "fixture-throttle-client" };
     let response: Response | undefined;
     for (let index = 0; index <= 30; index += 1) {
-      response = await app.request("/v1/inspect-transaction", {
+      response = await service.app.request("/v1/inspect-transaction", {
         method: "POST",
         headers,
         body: JSON.stringify({ network: "algorand-testnet", unsignedTransactionGroup: "not-base64" }),

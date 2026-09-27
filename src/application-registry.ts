@@ -1,7 +1,7 @@
 import type { Network } from "./types.js";
 
 /** Bump whenever a meaning or a registry entry changes. */
-export const APPLICATION_REGISTRY_VERSION = "2026-09-v1";
+export const APPLICATION_REGISTRY_VERSION = "2026-09-v2";
 
 type KnownMethod = {
   readonly selector: string;
@@ -19,6 +19,12 @@ type KnownApplication = {
 };
 
 const TINYMAN_V2_METHODS: readonly KnownMethod[] = [
+  {
+    selector: "bootstrap",
+    label: "bootstrap pool",
+    description: "Request initialization of a Tinyman V2 pool. The pool LogicSig application call is expected to opt in and rekey the pool account to the validator.",
+    consequences: ["This is a protocol-specific setup action, not a normal user asset transfer. Verify the pool LogicSig, foreign asset IDs, companion funding payment, and the validator rekey target."],
+  },
   {
     selector: "swap",
     label: "swap",

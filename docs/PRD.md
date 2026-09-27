@@ -1,6 +1,6 @@
 # MicroVern Product Requirements Document
 
-**Version:** 1.9
+**Version:** 2.0
 **Date:** 2026-09-27
 **Status:** Living product plan; MainNet release record reconciled
 
@@ -260,11 +260,19 @@ use MicroVern outside those boundaries or provide it a wallet secret.
 **Purpose:** ensure the product remains dependable as adoption and transaction
 variety grow.
 
-**Next work:** extend the adversarial regression corpus for malformed groups,
-fee pooling, rekeys, close-outs, asset edge cases, idempotency, payment
-middleware failures, and every production issue found. Expand the known
-application registry only from authoritative protocol documentation with
-versioned entries and fixtures. Keep unknown apps and methods visibly unknown.
+**Delivered baseline:** the regression corpus now covers malformed groups,
+rekeys, close-outs, fee pooling, same-account transfers, clawbacks, and
+recipient summaries for close-out destinations. It also covers idempotency
+replay/conflict behavior and restart-scoped privacy-preserving metrics. The
+versioned registry recognizes Tinyman V2 `bootstrap` only from its exact
+published selector, alongside the previously documented methods; different
+capitalization or unlisted selectors remain unknown.
+
+**Next work:** add a deterministic regression for every production issue;
+expand the known application registry only from authoritative protocol
+documentation with versioned entries and fixtures; and keep unknown apps and
+methods visibly unknown. Monitor the aggregate metrics for availability and
+latency trends without introducing customer telemetry.
 
 **Acceptance:** every resolved issue has a deterministic regression test; a
 recognized app explanation cannot silently become a claim about an unrecognized
@@ -288,9 +296,13 @@ never signs or broadcasts the customer transaction under review.
 
 Track validation, 402, and paid-inspection counts; completion and idempotency
 conflict rates; response latency; health/readiness availability; finding
-categories; and MainNet preflight and payment proofs. Do not retain keys,
-mnemonics, payment credentials, or raw unsigned transaction payloads for these
-metrics. Any new metric or storage needs privacy review before release.
+categories; and MainNet preflight and payment proofs. The initial
+`/v1/metrics` implementation is process-local and stores aggregate counts and
+latency buckets only; it resets on restart. Do not retain keys, mnemonics,
+payment credentials, raw unsigned transaction payloads, addresses, request
+hashes, IP addresses, wallet identifiers, payment proofs, or exception text
+for these metrics. Any new metric or storage needs privacy review before
+release.
 
 For public discovery, keep the landing-page title, description, logo, route
 description, and supported agent-oriented metadata accurate and specific about
