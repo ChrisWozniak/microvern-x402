@@ -9,6 +9,9 @@ no-spend MainNet quote, and settled payment proofs are recorded below. Bazaar
 catalog indexing remains an external pending item and is not represented as
 complete.
 
+For a concise owner-facing summary and public-link packet, see the
+[submission package](hackathon_submission_package.md).
+
 ## Public demo and service endpoints
 
 | Item | Public link | Verified result |
