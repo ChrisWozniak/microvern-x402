@@ -40,4 +40,15 @@ describe("MainNet preflight script", () => {
     expect(request).toHaveBeenCalledTimes(3);
     expect(request.mock.calls[2]?.[1]).not.toHaveProperty("headers.payment-signature");
   });
+
+  it("rejects an unreadable x402 header without making a payment request", async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "ok" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "ready", network: "algorand-mainnet", scheme: "exact" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 402, headers: { "payment-required": "not-a-payment-requirement" } }));
+
+    await expect(verifyMainnetPreflight("https://microvern.example", request)).rejects.toThrow("Payment-Required was not valid base64 JSON");
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(request.mock.calls[2]?.[1]).not.toHaveProperty("headers.payment-signature");
+  });
 });

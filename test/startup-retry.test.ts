@@ -33,6 +33,18 @@ describe("database startup retry", () => {
     expect(sleep).toHaveBeenCalledTimes(1);
   });
 
+  it("does not schedule a retry after exhausted transient failures", async () => {
+    const failure = Object.assign(new Error("connect ECONNRESET database:5432"), { code: "ECONNRESET" });
+    const initialize = vi.fn().mockRejectedValue(failure);
+    const sleep = vi.fn(async () => {});
+    const onRetry = vi.fn();
+
+    await expect(initializeWithDatabaseRetry(initialize, { maxAttempts: 3, initialDelayMs: 5, sleep, onRetry })).rejects.toBe(failure);
+    expect(onRetry).toHaveBeenCalledTimes(2);
+    expect(onRetry).toHaveBeenLastCalledWith({ attempt: 2, maxAttempts: 3, delayMs: 10, error: failure });
+    expect(sleep).toHaveBeenCalledTimes(2);
+  });
+
   it("does not retry a non-transient configuration failure", async () => {
     const failure = new Error("invalid password for database user");
     const initialize = vi.fn().mockRejectedValue(failure);

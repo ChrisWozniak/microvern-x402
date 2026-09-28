@@ -63,5 +63,7 @@ describe("application registry", () => {
   it("does not infer a meaning for unknown applications or methods", () => {
     expect(explainApplicationCall("algorand-mainnet", 1, []).recognition).toBe("unknown");
     expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new TextEncoder().encode("unregistered")]).recognition).toBe("known-application-unknown-method");
+    expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new TextEncoder().encode("swap\u0000admin")]).recognition).toBe("known-application-unknown-method");
+    expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new Uint8Array(65)]).recognition).toBe("known-application-unknown-method");
   });
 });

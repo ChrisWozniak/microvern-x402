@@ -139,6 +139,17 @@ describe("MicroVern Stage 1 API", () => {
     });
   });
 
+  it("fails closed for unsafe MainNet public configuration", () => {
+    const mainnetEnvironment = {
+      AVM_ADDRESS: receiver.addr.toString(),
+      MICROVERN_PAYMENT_NETWORK: "mainnet",
+      MICROVERN_MAINNET_CONFIRMATION,
+    };
+    expect(() => loadPaymentConfig({ ...mainnetEnvironment, MICROVERN_PRICE_USD: "$0" })).toThrow("MICROVERN_PRICE_USD");
+    expect(() => loadPaymentConfig({ ...mainnetEnvironment, MICROVERN_PUBLIC_BASE_URL: "https://microvern.example/not-an-origin" })).toThrow("MICROVERN_PUBLIC_BASE_URL");
+    expect(() => loadPaymentConfig({ ...mainnetEnvironment, FACILITATOR_URL: "http://facilitator.example" })).toThrow("FACILITATOR_URL");
+  });
+
   it("accepts only a PostgreSQL URL for the durable idempotency store", () => {
     expect(loadPostgresIdempotencyUrl({})).toBeUndefined();
     expect(() => loadPostgresIdempotencyUrl({ MICROVERN_POSTGRES_URL: "https://database.example" })).toThrow("MICROVERN_POSTGRES_URL");
@@ -157,6 +168,14 @@ describe("MicroVern Stage 1 API", () => {
       response: { status: 200, body: { verdict: "allow" }, paymentResponse: "receipt" },
     });
     expect(await store.acquire("durable-fixture-key", "b".repeat(64), 60_000)).toEqual({ state: "conflict" });
+  });
+
+  it("allows only one concurrent idempotency reservation for the same request", async () => {
+    const store = new InMemoryIdempotencyStore();
+    await store.initialize();
+    const results = await Promise.all(Array.from({ length: 12 }, () => store.acquire("concurrent-fixture-key", "a".repeat(64), 60_000)));
+    expect(results.filter((result) => result.state === "acquired")).toHaveLength(1);
+    expect(results.filter((result) => result.state === "in-progress")).toHaveLength(11);
   });
 
   it("requires a receiver address before starting the payment-protected API", () => {
