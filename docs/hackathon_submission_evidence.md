@@ -76,8 +76,12 @@ its protected-route metadata. Read-only catalog checks found:
 
 Therefore Bazaar catalog indexing is **not claimed as complete**. The public
 endpoint, payment quote, settled proof, receipt, and demo remain available for
-submission review. Recheck the catalog before final submission; if a resource
-appears, add its exact Bazaar URL and discovery metadata to this record.
+submission review. On 2026-09-28, the project owner sent a time-sensitive
+support request to GoPlausible at `info@goplausible.com` asking them to review
+MicroVern's missing MainNet Bazaar listing before the hackathon deadline. A
+response is still pending. Recheck the catalog before final submission; if a
+resource appears, add its exact Bazaar URL and discovery metadata to this
+record.
 
 ## Non-custodial security boundary
 

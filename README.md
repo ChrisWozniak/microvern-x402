@@ -40,7 +40,7 @@ sign. Clarity before commitment.** This is a decision-support aid, not a
 guarantee that a transaction is safe. See the
 [Bokmålsordboka definition of _vern_](https://ordbokene.no/bm/vern).
 
-## Current milestone: live MainNet and TestNet inspection service
+## Current milestone: live MainNet inspection service
 
 The local API accepts a base64 encoding of one or more concatenated unsigned Algorand transactions, each encoded by `algosdk.encodeUnsignedTransaction`. Multi-transaction inputs must have one shared Algorand group ID. It explains transfers, asset opt-ins/out, close-outs, clawbacks, asset administration, app calls, rekeys, and policy violations; unfamiliar behavior is flagged rather than treated as safe.
 
@@ -51,7 +51,15 @@ npm run build
 npm start
 ```
 
-For a public Testnet deployment on Render Free, use [the Render deployment guide](docs/render_testnet_deployment.md). The included `render.yaml` compiles the service and starts `dist/server.js`; it prompts for the receiver address rather than storing environment configuration in the repository. A separate, paid-MainNet Blueprint is prepared in [the MainNet Render deployment guide](docs/render_mainnet_deployment.md); it does not modify the Testnet service.
+The paid MainNet service is live. The separate Render Free TestNet service is
+temporarily suspended after reaching its free usage limit; its deployment
+configuration and prior settlement evidence remain available for review. For a
+future public TestNet deployment, use [the Render deployment guide](docs/render_testnet_deployment.md).
+The included `render.yaml` compiles the service and starts `dist/server.js`; it
+prompts for the receiver address rather than storing environment configuration
+in the repository. A separate, paid-MainNet Blueprint is prepared in [the
+MainNet Render deployment guide](docs/render_mainnet_deployment.md); it does
+not modify the TestNet service.
 
 ## Public landing page and MainNet preflight
 
@@ -264,7 +272,9 @@ on plain-language transaction review.
 
 ## Local verification coverage
 
-`npm test` currently runs 117 deterministic tests and `npm run build` type-checks the service. The suite covers route availability and readiness failures; privacy-preserving aggregate metrics; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; fee pooling; recipient summaries for close-outs; same-account and clawback balance accounting; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, recognized Tinyman V2 flash-loan/flash-swap calls, policy limits, and transient Postgres-startup retry handling); and the no-payment MainNet preflight contract.
+`npm test` currently passes 125 deterministic tests; three additional
+PostgreSQL integration tests run only when their explicit Docker connection
+URLs are supplied. `npm run build` type-checks the service. The suite covers route availability and readiness failures; privacy-preserving aggregate metrics; caller-consented Algod observations and unavailable fallback; versioned application registry recognition and unknown-method fallback; the narrowly scoped GitHub Pages browser-access policy; fixed unsigned guided-demo groups; browser-local receipt verification against the server binding format; versioned policy profiles; MCP recipient, transaction-cap, quote-cap, payment-proof, and explicit account-observation boundaries; the TestNet browser-payment origin, network, asset, amount, quote-change, and protected-402 CORS boundary; the agent client's exact network/asset/receiver/amount trust boundary, validate-before-payment behavior, typed recovery errors, and completion webhooks; validated Testnet and confirmation-gated MainNet payment configuration; PostgreSQL URL validation; atomic idempotency reservation/completion/replay semantics; x402 402 generation, malformed proof rejection, and Bazaar metadata; request/body/base64/policy validation; unpaid-request throttling; one-to-sixteen transaction group limits and shared-group enforcement; fee pooling; recipient summaries for close-outs; same-account and clawback balance accounting; exact ALGO and Testnet-USDC policy boundaries; declared intent comparison; browser-local saved safeguards and sanitized history; report verification; the supported transaction-risk findings (rekeys, close-outs, clawbacks, freezes, asset administration, recognized Tinyman V2 flash-loan/flash-swap calls, policy limits, and transient Postgres-startup retry handling); and the no-payment MainNet preflight contract.
 
 These are local, mocked-facilitator tests. They complement, rather than replace, the recorded public HTTPS checks, durable-idempotency deployment, MainNet and TestNet settlement evidence, and external Bazaar catalog verification.
 
