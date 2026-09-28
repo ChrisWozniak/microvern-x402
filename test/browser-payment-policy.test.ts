@@ -1,12 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
   isMicrovernTestnetBrowserOrigin,
+  isMicrovernMainnetBrowserOrigin,
+  MICROVERN_MAINNET_BROWSER_ORIGIN,
+  MICROVERN_MAINNET_CAIP2,
+  MICROVERN_MAINNET_PRICE_ATOMIC,
+  MICROVERN_MAINNET_RECEIVER,
+  MICROVERN_MAINNET_USDC_ASA_ID,
   MICROVERN_TESTNET_BROWSER_ORIGIN,
   MICROVERN_TESTNET_CAIP2,
   MICROVERN_TESTNET_PRICE_ATOMIC,
   MICROVERN_TESTNET_USDC_ASA_ID,
   sameCappedTestnetPaymentRequirement,
   selectCappedTestnetPaymentRequirement,
+  selectCappedMainnetPaymentRequirement,
 } from "../src/browser-payment-policy.js";
 
 const receiver = "KUBSPBIUIPE4CH473F6ZVNSRFJT5W6QAW6RJ65AUEDFD4UUFU5IOKE2ERE";
@@ -42,5 +49,28 @@ describe("browser TestNet payment boundary", () => {
   it("detects a fresh quote that differs from the displayed quote", () => {
     expect(sameCappedTestnetPaymentRequirement(offer, { ...offer })).toBe(true);
     expect(sameCappedTestnetPaymentRequirement(offer, { ...offer, payTo: "A".repeat(58) })).toBe(false);
+  });
+});
+
+describe("browser MainNet cataloging payment boundary", () => {
+  const mainnetOffer = {
+    scheme: "exact",
+    network: MICROVERN_MAINNET_CAIP2,
+    payTo: MICROVERN_MAINNET_RECEIVER,
+    amount: MICROVERN_MAINNET_PRICE_ATOMIC,
+    extra: { asset: MICROVERN_MAINNET_USDC_ASA_ID },
+  };
+
+  it("accepts only the canonical public MainNet HTTPS origin", () => {
+    expect(isMicrovernMainnetBrowserOrigin(MICROVERN_MAINNET_BROWSER_ORIGIN)).toBe(true);
+    expect(isMicrovernMainnetBrowserOrigin(`${MICROVERN_MAINNET_BROWSER_ORIGIN}/v1/inspect-transaction`)).toBe(false);
+    expect(isMicrovernMainnetBrowserOrigin("https://microvern-x402-testnet.onrender.com")).toBe(false);
+  });
+
+  it("accepts only the one fixed MainNet USDC receiver and amount", () => {
+    expect(selectCappedMainnetPaymentRequirement([mainnetOffer])).toEqual(mainnetOffer);
+    expect(() => selectCappedMainnetPaymentRequirement([{ ...mainnetOffer, payTo: receiver }])).toThrow("fixed MainNet USDC boundary");
+    expect(() => selectCappedMainnetPaymentRequirement([{ ...mainnetOffer, amount: "10001" }])).toThrow("fixed MainNet USDC boundary");
+    expect(() => selectCappedMainnetPaymentRequirement([{ ...mainnetOffer, extra: { asset: "10458941" } }])).toThrow("fixed MainNet USDC boundary");
   });
 });

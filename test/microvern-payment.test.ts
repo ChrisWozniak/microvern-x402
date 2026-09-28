@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { payerReadinessError, responseError, TESTNET_PAYMENT_VALIDITY_ROUNDS } from "../docs/assets/microvern-payment.ts";
+import {
+  decodeBazaarDiscoveryOutcome,
+  MAINNET_PAYMENT_VALIDITY_ROUNDS,
+  payerReadinessError,
+  responseError,
+  TESTNET_PAYMENT_VALIDITY_ROUNDS,
+} from "../docs/assets/microvern-payment.ts";
 
 function paymentRequiredHeader(error: string): string {
   return Buffer.from(JSON.stringify({ x402Version: 2, error, accepts: [] })).toString("base64");
@@ -8,6 +14,16 @@ function paymentRequiredHeader(error: string): string {
 describe("browser x402 payment diagnostics", () => {
   it("allows enough time for a Ledger-backed Pera approval", () => {
     expect(TESTNET_PAYMENT_VALIDITY_ROUNDS).toBe(120);
+    expect(MAINNET_PAYMENT_VALIDITY_ROUNDS).toBe(120);
+  });
+
+  it("reports a facilitator Bazaar result without treating an absent result as success", () => {
+    const success = Buffer.from(JSON.stringify({ bazaar: { status: "success" } })).toString("base64url");
+    const rejected = Buffer.from(JSON.stringify({ bazaar: { status: "rejected", rejectedReason: "invalid metadata" } })).toString("base64url");
+    expect(decodeBazaarDiscoveryOutcome(success)).toEqual({ status: "success" });
+    expect(decodeBazaarDiscoveryOutcome(rejected)).toEqual({ status: "rejected", rejectedReason: "invalid metadata" });
+    expect(decodeBazaarDiscoveryOutcome(null)).toEqual({ status: "not-reported" });
+    expect(decodeBazaarDiscoveryOutcome("not a header")).toEqual({ status: "malformed" });
   });
 
   it("identifies a selected account that lacks the TestNet USDC opt-in", () => {

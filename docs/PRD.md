@@ -289,15 +289,24 @@ latency trends without introducing customer telemetry.
 recognized app explanation cannot silently become a claim about an unrecognized
 method; and availability/latency metrics remain privacy-preserving.
 
-### 5. MainNet browser payment — deliberately gated
+### 5. MainNet Pera + Ledger Bazaar cataloging check — deliberately narrow
 
-**Purpose:** consider a human MainNet x402 payment journey only after the
-simple review experience and TestNet interaction are stable.
+**Purpose:** let the authorized operator make one capped MainNet x402 report
+payment to trigger and verify Bazaar discovery. It is not a general human
+MainNet payment journey.
 
-**Requirements before approval:** dedicated UX/security review, clear separate
-payment disclosure, fresh-quote and changed-term rejection, capped amount,
-recipient/network/asset pinning, wallet-specific compatibility testing, and a
-deliberate end-to-end MainNet test authorized by the operator.
+**Requirements:** show this path only when the quote exactly matches the
+pinned MainNet MicroVern origin, Algorand MainNet CAIP-2 identifier, USDC ASA
+`31566704`, `10,000` atomic units (`$0.01`), and the pinned receiver. Require
+an explicit real-USDC acknowledgement, start a fresh MainNet Pera pairing,
+check the selected account's USDC readiness, and reject a changed quote before
+Pera or Ledger can sign. The result must retain the payment receipt and report
+the facilitator's Bazaar status as `success`, `processing`, `rejected`,
+`not-reported`, or `malformed`; only the facilitator's report is evidence of
+acceptance, not a claim that the catalog listing is already visible.
+
+**Future MainNet browser payments:** remain out of scope until separately
+approved through UX, security, and wallet-compatibility review.
 
 **Non-negotiable boundary:** a wallet may sign the separately disclosed x402
 report payment, but MicroVern never receives a seed phrase or private key and
