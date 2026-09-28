@@ -101,4 +101,42 @@ describe("payment-protected service HTTP integration", () => {
     expect(verify).not.toHaveBeenCalled();
     expect(settle).not.toHaveBeenCalled();
   });
+
+  it("throttles a concurrent burst of unpaid quotes without sending transaction data to a facilitator", async () => {
+    const verify = vi.fn(async () => { throw new Error("A payment proof must not reach verification in this test."); });
+    const settle = vi.fn(async () => { throw new Error("A payment proof must not reach settlement in this test."); });
+    const facilitator: FacilitatorClient = {
+      getSupported: async () => ({
+        kinds: [{ x402Version: 2, scheme: "exact", network: GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2 }],
+        extensions: [],
+        signers: {},
+      }),
+      verify,
+      settle,
+    };
+    const service = createPaymentProtectedService(
+      requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString() }),
+      facilitator,
+    );
+    await service.initialize();
+
+    await withLoopbackService(service.app.fetch, async (baseUrl) => {
+      const requestBody = JSON.stringify(unsignedTestnetRequest());
+      const responses = await Promise.all(Array.from({ length: 31 }, () => fetch(`${baseUrl}/v1/inspect-transaction`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "203.0.113.99" },
+        body: requestBody,
+      })));
+      expect(responses.filter((response) => response.status === 402)).toHaveLength(30);
+      const throttled = responses.find((response) => response.status === 429);
+      expect(throttled).toBeDefined();
+      expect(throttled?.headers.get("retry-after")).toBe("60");
+      const body = await throttled!.json() as { error?: string };
+      expect(body.error).toBe("Too many unpaid inspection requests. Try again later.");
+      expect(JSON.stringify(body)).not.toContain(requestBody);
+    });
+
+    expect(verify).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled();
+  });
 });
