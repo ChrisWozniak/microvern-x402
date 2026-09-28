@@ -139,4 +139,43 @@ describe("payment-protected service HTTP integration", () => {
     expect(verify).not.toHaveBeenCalled();
     expect(settle).not.toHaveBeenCalled();
   });
+
+  it("recovers readiness after a temporary facilitator outage without attempting a payment", async () => {
+    let facilitatorAvailable = true;
+    const verify = vi.fn(async () => { throw new Error("A payment proof must not reach verification in this test."); });
+    const settle = vi.fn(async () => { throw new Error("A payment proof must not reach settlement in this test."); });
+    const facilitator: FacilitatorClient = {
+      getSupported: async () => {
+        if (!facilitatorAvailable) throw new Error("simulated facilitator outage");
+        return {
+          kinds: [{ x402Version: 2, scheme: "exact", network: GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2 }],
+          extensions: [],
+          signers: {},
+        };
+      },
+      verify,
+      settle,
+    };
+    const service = createPaymentProtectedService(
+      requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString() }),
+      facilitator,
+    );
+    await service.initialize();
+    facilitatorAvailable = false;
+
+    await withLoopbackService(service.app.fetch, async (baseUrl) => {
+      expect((await fetch(`${baseUrl}/healthz`)).status).toBe(200);
+      const unavailable = await fetch(`${baseUrl}/readyz`);
+      expect(unavailable.status).toBe(503);
+      expect(await unavailable.json()).toEqual({ status: "not-ready", reason: "facilitator_unavailable" });
+
+      facilitatorAvailable = true;
+      const recovered = await fetch(`${baseUrl}/readyz`);
+      expect(recovered.status).toBe(200);
+      expect(await recovered.json()).toEqual({ status: "ready", network: "algorand-testnet", scheme: "exact" });
+    });
+
+    expect(verify).not.toHaveBeenCalled();
+    expect(settle).not.toHaveBeenCalled();
+  });
 });
