@@ -35,3 +35,22 @@ The database blocks public connections. Render injects its internal, credential-
 4. Check the Render logs for successful startup. The service creates the `microvern_idempotency` table automatically. Do not log, copy, or commit the database URL.
 
 Only after these checks and a separate explicit approval should a capped MainNet inspection payment be made.
+
+## Postgres startup recovery
+
+The MainNet service requires Render Postgres for durable idempotency and fails
+closed if that store is unavailable. On a fresh deploy, Render can start the
+web service before Postgres is accepting connections. MicroVern treats only
+temporary database connection errors as retryable and logs a bounded
+exponential-backoff retry. It never falls back to the in-memory store for
+MainNet traffic.
+
+- A log line beginning `Database not ready during startup` means the service is
+  waiting to retry a temporary connection failure.
+- If a later retry succeeds, verify `/healthz` and `/readyz` before considering
+  the deploy complete.
+- If the final retry fails, do not make a payment. Check the Render Postgres
+  instance status and the service's `MICROVERN_POSTGRES_URL` database binding;
+  do not copy the credential-bearing URL into logs, source files, or tickets.
+- After repairing a persistent database issue, deploy the same source again
+  and run the no-payment MainNet preflight before any payment workflow.
