@@ -12,6 +12,7 @@
     "start:mcp": "node dist/mcp-server.js",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "vitest run test/integration",
     "verify:mainnet-preflight": "npm run build && node dist/mainnet-preflight.js"
   },
   "engines": {
