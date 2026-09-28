@@ -133,7 +133,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 101 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
+| Automated coverage | Delivered | `npm test` runs 106 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, and agent payment trust boundaries and webhooks. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
@@ -144,8 +144,8 @@ payload.
 | Versioned API policy profiles | Delivered | `strict-usdc-v1`, `algo-only-v1`, and `no-admin-actions-v1` resolve deterministically before payment. The selected ID/version is bound into each report. |
 | Agent MCP interface | Delivered | A local stdio MCP server exposes `validate_transaction`, `get_quote`, and `inspect_transaction` with mandatory profile, ALGO/USDC transaction caps, recipient allowlist, payment-cap, receiver, and network boundaries. It accepts no wallet secret. |
 | Optional account-state context | Delivered foundation | A caller must explicitly request `{ "accountStateChecks": { "consent": true } }`. MicroVern then reads only public sender/ASA facts from a configured Algod endpoint and labels the result `observed at round X`, `not configured`, or `unavailable`; it never presents an observation as a guarantee. |
-| Recognized application-call semantics | Delivered foundation | Versioned registry `2026-09-v1` recognizes the documented Tinyman V2 MainNet/TestNet validator apps and selected methods. Other applications and unrecognized methods remain visibly unknown. |
-| Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but read-only MainNet and TestNet searches returned zero MicroVern results on 2026-09-26. That does not invalidate the paid endpoint. |
+| Recognized application-call semantics | Delivered foundation | Versioned registry `2026-09-v2` recognizes the documented Tinyman V2 MainNet/TestNet validator apps and selected methods. Other applications and unrecognized methods remain visibly unknown. |
+| Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but the public MainNet merchant-ID query returned zero MicroVern resources on 2026-09-27; earlier MainNet and TestNet searches also returned zero results on 2026-09-26. That does not invalidate the paid endpoint. |
 
 ## MainNet release record
 
@@ -161,7 +161,7 @@ explicit approval and no-secret boundary.
 | Configure public service metadata | Complete | `MICROVERN_ICON_URL` points to the published MicroVern icon, and the service declares its public HTTPS base URL. |
 | Run no-payment preflight | Complete | Public HTTPS returned the expected MainNet `402` quote without payment. |
 | Authorize and make one capped MainNet payment | Complete | One intentional `$0.01` USDC inspection settled; the transaction and facilitator receipt are public. |
-| Verify discovery and submission evidence | In progress: external indexing pending | Public endpoint, quote, settled proof, receipt, demo, and evidence record are ready. Bazaar indexing has been checked but is not yet listed. |
+| Verify discovery and submission evidence | In progress: external indexing pending | Public endpoint, quote, settled proof, receipt, demo, and evidence record are ready. Bazaar indexing was rechecked on 2026-09-27 and is not yet listed. |
 | Complete challenge submission | Pending | Project details, paid-use evidence, and the public repository are submitted through the challenge process. |
 
 No future MainNet payment or production configuration change should occur
@@ -190,8 +190,16 @@ labeled optional details.
 
 1. Add or load an unsigned transaction group.
 2. Run the free structural check.
-3. Read one plain-language decision: **Matches your selected safeguards**,
-   **Needs attention**, or **Blocked by your safeguards**.
+3. Review the protected-report terms before any compatible wallet or agent
+   approves a separate x402 report payment.
+
+**Report result:** when a protected report is returned, show one
+plain-language decision: **Matches your selected safeguards**, **Needs
+attention**, or **Blocked by your safeguards**. The browser's TestNet Pera
+pilot can retrieve that report after the user approves the pinned TestNet
+payment. The MainNet browser experience is deliberately quote-only; a
+compatible wallet or agent must separately approve the disclosed payment and
+retrieve the report.
 
 **Required visible facts:** what would leave the wallet if the group is signed;
 who would receive it; whether account control would change; and the highest
@@ -205,9 +213,12 @@ an **Advanced details** area or a separate tool. Never call a group “safe.” 
 positive result must say it matched the selected safeguards and still instruct
 the user to confirm the recipient and amount in their own wallet.
 
-**Acceptance:** a new user can understand the proposed transfer and the next
-safe action without reading a technical term. No payment, wallet connection,
-or advanced setting is required for the free check.
+**Acceptance:** a new user can understand the free check and next safe action
+without reading a technical term. No payment, wallet connection, or advanced
+setting is required for that check. When a protected report is needed, the
+page clearly separates its terms from the unsigned group and explains whether
+the user can continue in the TestNet pilot or must use a compatible MainNet
+wallet or agent.
 
 ### 2. Advanced security tools — delivered first consolidation
 

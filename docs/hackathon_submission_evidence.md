@@ -1,6 +1,6 @@
 # MicroVern hackathon submission evidence
 
-**Last read-only check:** 2026-09-26. This record captures public endpoints
+**Last read-only check:** 2026-09-27. This record captures public endpoints
 and already-settled payment evidence. No payment, signing, or broadcast was
 performed while collecting it.
 
@@ -47,12 +47,15 @@ or obtain the paid report.
 ## Bazaar discovery status
 
 MicroVern advertises the Bazaar extension and `x402-global-challenge` tag in
-its protected-route metadata. The read-only catalog check on 2026-09-26 found:
+its protected-route metadata. Read-only catalog checks found:
 
-- MainNet Bazaar search for `microvern`: **0 results**.
-- TestNet Bazaar search for `microvern`: **0 results**.
-- Exact-URL search returned the facilitator's current `500` error: `LIKE or
-  GLOB pattern too complex`.
+- On 2026-09-27, the MainNet receiver
+  `GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE`
+  returned **0 resources** from the public Bazaar merchant-ID query.
+- On 2026-09-26, MainNet and TestNet Bazaar searches for `microvern` each
+  returned **0 results**.
+- The 2026-09-26 exact-URL search returned the facilitator's current `500`
+  error: `LIKE or GLOB pattern too complex`.
 
 Therefore Bazaar catalog indexing is **not claimed as complete**. The public
 endpoint, payment quote, settled proof, receipt, and demo remain available for
