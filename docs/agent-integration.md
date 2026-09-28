@@ -107,9 +107,11 @@ optional `EXTENSION-RESPONSES` header and has one of these values:
 | `rejected` | Do not pay again; retain `rejectedReason` and correct the discovery metadata first. |
 | `not-reported` or `malformed` | Retain the receipt and response details, then ask the facilitator operator to investigate. Neither state proves cataloging. |
 
-Use `node examples/generate-mainnet-inspection-request.mjs > request.json` to
-create the dedicated harmless MainNet request for this check. It is unsigned,
-uses an ephemeral self-payment with an amount of zero, and is never broadcast.
+Use `node examples/generate-mainnet-inspection-request.mjs request.json` to
+create the dedicated harmless MainNet request for this check. The generator
+writes UTF-8 itself, avoiding PowerShell output-redirection encodings. It is
+unsigned, uses an ephemeral self-payment with an amount of zero, and is never
+broadcast.
 
 ## Recovery rules
 

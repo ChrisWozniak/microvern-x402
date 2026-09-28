@@ -1,4 +1,5 @@
 import algosdk from "algosdk";
+import { writeFile } from "node:fs/promises";
 
 // This creates a harmless, unsigned MainNet self-payment for an x402/Bazaar
 // inspection check. It is never submitted to Algorand and has no private key.
@@ -17,8 +18,17 @@ const transaction = algosdk.makePaymentTxnWithSuggestedParamsFromObject({
   },
 });
 
-console.log(JSON.stringify({
+const request = {
   network: "algorand-mainnet",
   unsignedTransactionGroup: Buffer.from(algosdk.encodeUnsignedTransaction(transaction)).toString("base64"),
   policy: { maxAlgoSend: 0, maxUsdcSend: 0.01, allowRekey: false, allowCloseOut: false },
-}, null, 2));
+};
+const output = `${JSON.stringify(request, null, 2)}\n`;
+const outputPath = process.argv[2];
+
+if (outputPath === undefined) {
+  console.log(output);
+} else {
+  await writeFile(outputPath, output, "utf8");
+  console.error(`Wrote an unsigned-only MainNet inspection request to ${outputPath}.`);
+}
