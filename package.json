@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "vitest run test/integration",
+    "test:integration:postgres": "vitest run test/integration/postgres-idempotency.integration.test.ts",
     "test:browser": "playwright test",
     "verify:mainnet-preflight": "npm run build && node dist/mainnet-preflight.js"
   },

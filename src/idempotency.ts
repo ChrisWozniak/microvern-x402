@@ -154,6 +154,11 @@ export class PostgresIdempotencyStore implements IdempotencyStore {
   async release(key: string): Promise<void> {
     await this.pool.query("DELETE FROM microvern_idempotency WHERE idempotency_key = $1 AND state = 'processing'", [key]);
   }
+
+  /** Releases database connections for controlled test and process shutdown. */
+  async close(): Promise<void> {
+    await this.pool.end();
+  }
 }
 
 export function createIdempotencyStore(postgresUrl: string | undefined): IdempotencyStore {
