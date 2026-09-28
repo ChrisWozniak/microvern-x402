@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertDistinctMainnetPayer,
   decodeBazaarDiscoveryOutcome,
   MAINNET_PAYMENT_VALIDITY_ROUNDS,
   payerReadinessError,
@@ -24,6 +25,12 @@ describe("browser x402 payment diagnostics", () => {
     expect(decodeBazaarDiscoveryOutcome(rejected)).toEqual({ status: "rejected", rejectedReason: "invalid metadata" });
     expect(decodeBazaarDiscoveryOutcome(null)).toEqual({ status: "not-reported" });
     expect(decodeBazaarDiscoveryOutcome("not a header")).toEqual({ status: "malformed" });
+  });
+
+  it("refuses to use the merchant payment-recipient as the MainNet cataloging payer", () => {
+    expect(() => assertDistinctMainnetPayer("GOXRRECIPIENT", "GOXRRECIPIENT"))
+      .toThrow("self-payment is not a valid Bazaar cataloging check");
+    expect(() => assertDistinctMainnetPayer("KUBSPPAYER", "GOXRRECIPIENT")).not.toThrow();
   });
 
   it("identifies a selected account that lacks the TestNet USDC opt-in", () => {

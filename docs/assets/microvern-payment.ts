@@ -196,6 +196,19 @@ async function requireReadyMainnetUsdcPayer(algorandClient: AlgorandClient, addr
   }
 }
 
+/**
+ * A Bazaar cataloging payment must come from a customer-controlled account,
+ * not the merchant account that is configured to receive it.
+ */
+export function assertDistinctMainnetPayer(address: string, receiver: string): void {
+  if (address === receiver) {
+    throw new Error(
+      "Pera selected MicroVern's payment-recipient account. Choose a separate MainNet Ledger account with USDC; "
+      + "a self-payment is not a valid Bazaar cataloging check. No payment was signed.",
+    );
+  }
+}
+
 async function restoreOrConnectPeraSession(wallet: PeraWalletConnect, forceNewPairing: boolean, networkName: string): Promise<string> {
   if (forceNewPairing) {
     // This affects only the saved WalletConnect pairing for this browser. It
@@ -321,6 +334,7 @@ export async function payForMicrovernMainnetBazaarInspection(
   // TestNet pairing in this browser from being silently reused for this action.
   const wallet = new PeraWalletConnect({ chainId: 416001, compactMode: true });
   const address = await restoreOrConnectPeraSession(wallet, true, "MainNet");
+  assertDistinctMainnetPayer(address, displayedRequirement.payTo as string);
   const signer = createPeraSigner(wallet, address);
   const algorandClient = AlgorandClient.mainNet()
     .setDefaultValidityWindow(MAINNET_PAYMENT_VALIDITY_ROUNDS);
