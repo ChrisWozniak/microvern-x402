@@ -34,7 +34,15 @@ export interface AgentInspectionResult {
   requestId: string | null;
   paymentTransactionId: string;
   paymentReceipt: ReturnType<typeof decodePaymentResponseHeader>;
+  bazaarDiscovery: BazaarDiscoveryOutcome;
   report: InspectionReport;
+}
+
+/** The facilitator's optional Bazaar result for the settled payment. */
+export interface BazaarDiscoveryOutcome {
+  /** `not-reported` and `malformed` are diagnostic states; neither claims indexing. */
+  status: "success" | "processing" | "rejected" | "not-reported" | "malformed";
+  rejectedReason?: string;
 }
 
 export type AgentInspectionFailureKind = "payment-required" | "in-progress" | "throttled" | "unavailable" | "rejected";
@@ -115,6 +123,30 @@ async function responseJson(response: Response): Promise<unknown> {
 
 function validIdempotencyKey(key: string): boolean {
   return IDEMPOTENCY_KEY_PATTERN.test(key);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/**
+ * Reads the optional x402 `EXTENSION-RESPONSES` header without letting an
+ * unrecognised extension result invalidate an otherwise verified report.
+ */
+export function decodeBazaarDiscoveryOutcome(header: string | null): BazaarDiscoveryOutcome {
+  if (header === null || header.trim() === "") return { status: "not-reported" };
+  try {
+    const normalized = header.trim().replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - normalized.length % 4) % 4), "=");
+    const decoded: unknown = JSON.parse(Buffer.from(padded, "base64").toString("utf8"));
+    if (!isRecord(decoded) || !isRecord(decoded.bazaar)) return { status: "malformed" };
+    const status = decoded.bazaar.status;
+    if (status !== "success" && status !== "processing" && status !== "rejected") return { status: "malformed" };
+    const rejectedReason = decoded.bazaar.rejectedReason;
+    return typeof rejectedReason === "string" ? { status, rejectedReason } : { status };
+  } catch {
+    return { status: "malformed" };
+  }
 }
 
 function assertInspectionRequestNetwork(request: InspectionRequest, policy: MicrovernAgentTrustPolicy): void {
@@ -231,6 +263,7 @@ export class MicrovernAgentClient {
       requestId: response.headers.get("x-request-id"),
       paymentTransactionId: paymentReceipt.transaction,
       paymentReceipt,
+      bazaarDiscovery: decodeBazaarDiscoveryOutcome(response.headers.get("extension-responses")),
       report: body,
     };
   }

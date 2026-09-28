@@ -4,6 +4,7 @@ import {
   AgentInspectionError,
   AgentPreflightError,
   createMicrovernAgentClient,
+  decodeBazaarDiscoveryOutcome,
   isTrustedMicrovernPaymentRequirement,
   type MicrovernAgentTrustPolicy,
 } from "../src/agent-client.js";
@@ -28,6 +29,15 @@ const request = {
 };
 
 describe("MicrovernAgentClient", () => {
+  it("records Bazaar catalog outcomes without treating missing metadata as a listing", () => {
+    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    expect(decodeBazaarDiscoveryOutcome(null)).toEqual({ status: "not-reported" });
+    expect(decodeBazaarDiscoveryOutcome(encode({ bazaar: { status: "success" } }))).toEqual({ status: "success" });
+    expect(decodeBazaarDiscoveryOutcome(encode({ bazaar: { status: "processing" } }))).toEqual({ status: "processing" });
+    expect(decodeBazaarDiscoveryOutcome(encode({ bazaar: { status: "rejected", rejectedReason: "schema invalid" } }))).toEqual({ status: "rejected", rejectedReason: "schema invalid" });
+    expect(decodeBazaarDiscoveryOutcome("not-base64")).toEqual({ status: "malformed" });
+  });
+
   it("accepts only the pinned exact Algorand USDC payment requirement within the cap", () => {
     const expected = {
       scheme: "exact",

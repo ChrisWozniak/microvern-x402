@@ -16,7 +16,9 @@ The kit consists of:
   locally verified report.
 - [`examples/agent-inspection.ts`](../examples/agent-inspection.ts): a
   MainNet runner with MicroVern’s deployed HTTPS origin, official USDC ASA,
-  receiver, and a hard `$0.01` cap pinned in code.
+  receiver, and a hard `$0.01` cap pinned in code. It also records the
+  facilitator's Bazaar catalog outcome after a settled payment.
+- [`examples/generate-mainnet-inspection-request.mjs`](../examples/generate-mainnet-inspection-request.mjs): a harmless unsigned MainNet self-payment generator for a cataloging check; it does not submit or sign a transaction.
 
 ## 1. Prepare an approved signer module
 
@@ -92,6 +94,22 @@ idempotency key, support request ID, settlement transaction ID, [Allo
 explorer](https://allo.info/) URL, and facilitator receipt URL. The client
 also recomputes the request hash and report checksum locally; a report not
 bound to the exact request is rejected.
+
+### Record the Bazaar outcome
+
+The runner also emits `bazaarDiscovery`. It is read from the facilitator's
+optional `EXTENSION-RESPONSES` header and has one of these values:
+
+| Value | Next action |
+| --- | --- |
+| `success` | Query the Bazaar catalog and record the listing URL. |
+| `processing` | Wait 15–30 minutes, then query the catalog again. |
+| `rejected` | Do not pay again; retain `rejectedReason` and correct the discovery metadata first. |
+| `not-reported` or `malformed` | Retain the receipt and response details, then ask the facilitator operator to investigate. Neither state proves cataloging. |
+
+Use `node examples/generate-mainnet-inspection-request.mjs > request.json` to
+create the dedicated harmless MainNet request for this check. It is unsigned,
+uses an ephemeral self-payment with an amount of zero, and is never broadcast.
 
 ## Recovery rules
 

@@ -78,6 +78,7 @@ async function main(): Promise<void> {
     requestId: result.requestId,
     attempts,
     paymentTransactionId: result.paymentTransactionId,
+    bazaarDiscovery: result.bazaarDiscovery,
     webhookDelivered: webhookEvent !== undefined,
     webhookReportId: webhookEvent?.reportId,
     receiptUrl: `https://facilitator.goplausible.xyz/api/receipt/${result.paymentTransactionId}`,
