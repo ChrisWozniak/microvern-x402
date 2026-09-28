@@ -52,17 +52,27 @@ function optionalWebhook(): AgentWebhookDeliveryOptions | undefined {
   return { url, secret };
 }
 
+function noPaymentSigner(): ClientAvmSigner {
+  return {
+    address: MAINNET_TRUST_POLICY.payTo,
+    async signTransactions() {
+      throw new Error("Dry-run mode cannot sign a payment.");
+    },
+  };
+}
+
 async function main(): Promise<void> {
   const request = await readInspectionRequest();
-  const signer = await loadApprovedSigner();
-  const client = createMicrovernAgentClient(signer, MAINNET_TRUST_POLICY);
 
   if (process.env.MICROVERN_DRY_RUN === "1") {
+    const client = createMicrovernAgentClient(noPaymentSigner(), MAINNET_TRUST_POLICY);
     await client.validate(request);
     console.log("Preflight passed. No payment was attempted.");
     return;
   }
 
+  const signer = await loadApprovedSigner();
+  const client = createMicrovernAgentClient(signer, MAINNET_TRUST_POLICY);
   const correlationId = process.env.MICROVERN_CORRELATION_ID;
   const { result, attempts } = await inspectWithSafeRecovery(client, request, {
     maxAttempts: 2,

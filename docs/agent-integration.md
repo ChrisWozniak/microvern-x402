@@ -62,18 +62,19 @@ the signer.
 
 ```powershell
 $env:MICROVERN_REQUEST_FILE = ".\request.json"
-$env:MICROVERN_AGENT_SIGNER_MODULE = ".\approved-agent-signer.ts"
 $env:MICROVERN_DRY_RUN = "1"
 npx tsx examples/agent-inspection.ts
 ```
 
-If it prints `Preflight passed`, remove `MICROVERN_DRY_RUN` only when your
-agent is explicitly authorized to spend at most `$0.01` USDC for this exact
-inspection.
+Dry-run mode intentionally does not load or call a signer. If it prints
+`Preflight passed`, set `MICROVERN_AGENT_SIGNER_MODULE` and remove
+`MICROVERN_DRY_RUN` only when your agent is explicitly authorized to spend at
+most `$0.01` USDC for this exact inspection.
 
 ## 4. Make one bounded inspection
 
 ```powershell
+$env:MICROVERN_AGENT_SIGNER_MODULE = ".\approved-agent-signer.ts"
 Remove-Item Env:MICROVERN_DRY_RUN
 npx tsx examples/agent-inspection.ts
 ```
