@@ -34,6 +34,32 @@ describe("application registry", () => {
     });
   });
 
+  it("explains the documented Tinyman V2 MainNet flash-loan selector", () => {
+    const explanation = explainApplicationCall(
+      "algorand-mainnet",
+      1_002_541_853,
+      [new TextEncoder().encode("flash_loan")],
+    );
+    expect(explanation).toMatchObject({
+      recognition: "recognized",
+      method: "flash loan",
+    });
+    expect(explanation.consequences.join(" ")).toContain("verification");
+  });
+
+  it("explains the documented Tinyman V2 TestNet flash-swap selector", () => {
+    const explanation = explainApplicationCall(
+      "algorand-testnet",
+      148_607_000,
+      [new TextEncoder().encode("flash_swap")],
+    );
+    expect(explanation).toMatchObject({
+      recognition: "recognized",
+      method: "flash swap",
+    });
+    expect(explanation.consequences.join(" ")).toContain("verification");
+  });
+
   it("does not infer a meaning for unknown applications or methods", () => {
     expect(explainApplicationCall("algorand-mainnet", 1, []).recognition).toBe("unknown");
     expect(explainApplicationCall("algorand-mainnet", 1_002_541_853, [new TextEncoder().encode("unregistered")]).recognition).toBe("known-application-unknown-method");

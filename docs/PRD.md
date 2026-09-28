@@ -133,7 +133,7 @@ payload.
 | Item | Status | Evidence / notes |
 | --- | --- | --- |
 | Core inspection API | Delivered | TypeScript service, OpenAPI contract, and deterministic tests. |
-| Automated coverage | Delivered | `npm test` runs 115 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, agent payment trust boundaries and webhooks, and transient Postgres-startup retry handling. |
+| Automated coverage | Delivered | `npm test` runs 117 deterministic tests, including MainNet preflight behavior, browser-local receipt verification, fixed unsigned guided-demo groups, versioned policy profiles, MCP recipient/transaction-cap/quote/payment-proof/account-observation boundaries, caller-approved account-state observations, recognized-application semantics including Tinyman V2 flash-loan/flash-swap calls, the public review console's browser-access policy, its visual decision summary, TestNet browser-payment and protected-402 CORS boundaries, declared intent checks, browser-local safeguards/history, agent payment trust boundaries and webhooks, and transient Postgres-startup retry handling. |
 | Public TestNet deployment | Delivered | `https://microvern-x402-testnet.onrender.com` is live. |
 | Availability monitor | Delivered | UptimeRobot checks `/healthz` every 10 minutes. |
 | Real paid TestNet proof | Delivered | One $0.01 TestNet USDC payment: [`6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ`](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ). |
@@ -144,7 +144,7 @@ payload.
 | Versioned API policy profiles | Delivered | `strict-usdc-v1`, `algo-only-v1`, and `no-admin-actions-v1` resolve deterministically before payment. The selected ID/version is bound into each report. |
 | Agent MCP interface | Delivered | A local stdio MCP server exposes `validate_transaction`, `get_quote`, and `inspect_transaction` with mandatory profile, ALGO/USDC transaction caps, recipient allowlist, payment-cap, receiver, and network boundaries. It accepts no wallet secret. |
 | Optional account-state context | Delivered foundation | A caller must explicitly request `{ "accountStateChecks": { "consent": true } }`. MicroVern then reads only public sender/ASA facts from a configured Algod endpoint and labels the result `observed at round X`, `not configured`, or `unavailable`; it never presents an observation as a guarantee. |
-| Recognized application-call semantics | Delivered foundation | Versioned registry `2026-09-v2` recognizes the documented Tinyman V2 MainNet/TestNet validator apps and selected methods. Other applications and unrecognized methods remain visibly unknown. |
+| Recognized application-call semantics | Delivered foundation | Versioned registry `2026-09-v3` recognizes the documented Tinyman V2 MainNet/TestNet validator apps and selected methods, including flash loans and flash swaps. Other applications and unrecognized methods remain visibly unknown. |
 | Bazaar discovery | Pending external indexing | The route advertises the required discovery metadata, but the public MainNet merchant-ID query returned zero MicroVern resources on 2026-09-27; earlier MainNet and TestNet searches also returned zero results on 2026-09-26. That does not invalidate the paid endpoint. |
 
 ## MainNet release record
@@ -275,8 +275,9 @@ variety grow.
 rekeys, close-outs, fee pooling, same-account transfers, clawbacks, and
 recipient summaries for close-out destinations. It also covers idempotency
 replay/conflict behavior and restart-scoped privacy-preserving metrics. The
-versioned registry recognizes Tinyman V2 `bootstrap` only from its exact
-published selector, alongside the previously documented methods; different
+versioned registry recognizes Tinyman V2 `bootstrap`, `flash_loan`, and
+`flash_swap` only from their exact published selectors, alongside the
+previously documented methods; different
 capitalization or unlisted selectors remain unknown.
 
 **Next work:** add a deterministic regression for every production issue;

@@ -1,7 +1,7 @@
 import type { Network } from "./types.js";
 
 /** Bump whenever a meaning or a registry entry changes. */
-export const APPLICATION_REGISTRY_VERSION = "2026-09-v2";
+export const APPLICATION_REGISTRY_VERSION = "2026-09-v3";
 
 type KnownMethod = {
   readonly selector: string;
@@ -48,6 +48,18 @@ const TINYMAN_V2_METHODS: readonly KnownMethod[] = [
     label: "remove liquidity",
     description: "Request withdrawal of assets from a Tinyman V2 liquidity position.",
     consequences: ["Verify the pool-token transfer and minimum asset outputs. Actual amounts depend on pool state when executed."],
+  },
+  {
+    selector: "flash_loan",
+    label: "flash loan",
+    description: "Request a Tinyman V2 flash loan. Its repayment and verification application call must occur in the same atomic group.",
+    consequences: ["This is an advanced atomic-group action. Verify each borrowed asset, the repayment transfers, the verification call, fees, and the full group ordering before signing."],
+  },
+  {
+    selector: "flash_swap",
+    label: "flash swap",
+    description: "Request a Tinyman V2 flash swap. Its repayment and verification application call must occur in the same atomic group.",
+    consequences: ["This is an advanced atomic-group action. Verify each borrowed asset, all repayment transfers, the verification call, fees, and the full group ordering before signing."],
   },
 ];
 
