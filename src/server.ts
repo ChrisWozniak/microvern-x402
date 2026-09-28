@@ -4,6 +4,7 @@ import { serve } from "@hono/node-server";
 import { createPaymentProtectedService } from "./app.js";
 import { loadPostgresIdempotencyUrl, requirePaymentConfig } from "./config.js";
 import { createIdempotencyStore, type IdempotencyStore } from "./idempotency.js";
+import { initializeWithDatabaseRetry } from "./startup-retry.js";
 
 function assertMainnetLaunchIsSafe(network: string, idempotencyStore: IdempotencyStore): void {
   if (network === "algorand-mainnet" && !idempotencyStore.durable) {
@@ -24,7 +25,15 @@ async function main(): Promise<void> {
   }
 
   const service = createPaymentProtectedService(paymentConfig, undefined, idempotencyStore);
-  await service.initialize();
+  await initializeWithDatabaseRetry(
+    () => service.initialize(),
+    {
+      onRetry: ({ attempt, maxAttempts, delayMs, error }) => {
+        const message = error instanceof Error ? error.message : "database initialization failed";
+        console.warn(`Database not ready during startup (attempt ${attempt}/${maxAttempts}); retrying in ${delayMs}ms: ${message}`);
+      },
+    },
+  );
   serve({ fetch: service.app.fetch, port }, (info) => {
     console.log(`MicroVern x402 API listening on http://localhost:${info.port}`);
   });
