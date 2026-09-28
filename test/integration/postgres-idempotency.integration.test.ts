@@ -3,12 +3,16 @@ import { once } from "node:events";
 import type { Server } from "node:http";
 import { serve } from "@hono/node-server";
 import algosdk from "algosdk";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createLocalAnalysisApp } from "../../src/app.js";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { createLocalAnalysisApp, createPaymentProtectedService } from "../../src/app.js";
+import { GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2, requireTestnetPaymentConfig } from "../../src/config.js";
 import { PostgresIdempotencyStore } from "../../src/idempotency.js";
+import { initializeWithDatabaseRetry } from "../../src/startup-retry.js";
 
 const postgresUrl = process.env.MICROVERN_TEST_POSTGRES_URL;
 const describeWithPostgres = postgresUrl === undefined ? describe.skip : describe;
+const recoveryPostgresUrl = process.env.MICROVERN_TEST_POSTGRES_RECOVERY_URL;
+const describeWithPostgresRecovery = recoveryPostgresUrl === undefined ? describe.skip : describe;
 const sender = algosdk.generateAccount();
 const receiver = algosdk.generateAccount();
 const suggestedParams = {
@@ -108,5 +112,39 @@ describeWithPostgres("Postgres idempotency integration", () => {
       expect(conflict.status).toBe(409);
       expect(await conflict.json()).toEqual({ error: "This Idempotency-Key is already bound to a different inspection request." });
     });
+  });
+});
+
+describeWithPostgresRecovery("Postgres service startup recovery integration", () => {
+  const store = new PostgresIdempotencyStore(recoveryPostgresUrl ?? "postgresql://not-used");
+  const facilitator = {
+    getSupported: async () => ({
+      kinds: [{ x402Version: 2, scheme: "exact", network: GOPLAUSIBLE_ALGORAND_TESTNET_CAIP2 }],
+      extensions: [],
+      signers: {},
+    }),
+    verify: async () => { throw new Error("A payment proof must not reach verification in this test."); },
+    settle: async () => { throw new Error("A payment proof must not reach settlement in this test."); },
+  };
+  const service = createPaymentProtectedService(
+    requireTestnetPaymentConfig({ AVM_ADDRESS: receiver.addr.toString() }),
+    facilitator,
+    store,
+  );
+
+  afterAll(async () => {
+    await store.close();
+  });
+
+  it("retries service startup until a real PostgreSQL instance becomes available", async () => {
+    const onRetry = vi.fn();
+    await initializeWithDatabaseRetry(
+      () => service.initialize(),
+      { maxAttempts: 3, initialDelayMs: 3_000, maxDelayMs: 3_000, onRetry },
+    );
+
+    expect(onRetry).toHaveBeenCalledTimes(1);
+    expect(onRetry).toHaveBeenCalledWith(expect.objectContaining({ attempt: 1, maxAttempts: 3, delayMs: 3_000 }));
+    expect((await service.app.request("/readyz")).status).toBe(200);
   });
 });
