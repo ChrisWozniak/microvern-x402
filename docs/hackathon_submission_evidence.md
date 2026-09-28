@@ -1,13 +1,14 @@
 # MicroVern hackathon submission evidence
 
-**Last read-only check:** 2026-09-27. This record captures public endpoints
+**Last read-only check:** 2026-09-28. This record captures public endpoints
 and already-settled payment evidence. No payment, signing, or broadcast was
 performed while collecting it.
 
-**Submission readiness:** the public demo, MainNet and TestNet endpoints,
+**Submission readiness:** the public demo, repository, MainNet endpoint,
 no-spend MainNet quote, and settled payment proofs are recorded below. Bazaar
 catalog indexing remains an external pending item and is not represented as
-complete.
+complete. The free TestNet service is temporarily suspended by Render until
+its next billing-cycle reset; this does not affect the public MainNet evidence.
 
 For a concise owner-facing summary and public-link packet, see the
 [submission package](hackathon_submission_package.md).
@@ -23,10 +24,17 @@ For a concise owner-facing summary and public-link packet, see the
 | TestNet payment readiness | [`/readyz`](https://microvern-x402-testnet.onrender.com/readyz) | `200` — TestNet `exact` scheme ready. |
 | Paid inspection API | [`POST /v1/inspect-transaction`](https://microvern-x402-mainnet.onrender.com/v1/inspect-transaction) | x402-protected MainNet endpoint. |
 
+On 2026-09-28, the GitHub Pages demo and public repository each returned
+`200`; MainNet `/healthz` and `/readyz` each returned `200`, and an unpaid
+MainNet inspection request returned the expected `402` quote. The two TestNet
+rows above are their last successful 2026-09-27 checks: Render reported the
+Free-plan TestNet web service suspended on 2026-09-28 until the billing-cycle
+reset.
+
 ## MainNet x402 quote: no payment made
 
 A read-only `POST` probe of the MainNet inspection endpoint returned HTTP
-`402` with x402 v2 `exact` payment requirements:
+`402` with x402 v2 `exact` payment requirements on 2026-09-28:
 
 | Requirement | Verified value |
 | --- | --- |
@@ -52,6 +60,12 @@ or obtain the paid report.
 MicroVern advertises the Bazaar extension and `x402-global-challenge` tag in
 its protected-route metadata. Read-only catalog checks found:
 
+- On 2026-09-28, the MainNet receiver
+  `GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE`
+  again returned **0 resources** from the public Bazaar merchant-ID query;
+  the MainNet resource search for `microvern` also returned **0 results**.
+  The direct merchant lookup returned `404`, while the MainNet merchant-name
+  search returned a facilitator-side `500` error.
 - On 2026-09-27, the MainNet receiver
   `GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE`
   returned **0 resources** from the public Bazaar merchant-ID query.
