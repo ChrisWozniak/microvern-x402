@@ -26,7 +26,7 @@ describe("browser share links", () => {
   it("rejects tampered, incomplete, or impractically large share links", () => {
     const { report } = fixture();
     expect(() => readMicrovernShareLink("https://example.test/review.html#review=not+base64")).toThrow("not valid");
-    expect(() => createMicrovernShareLink({ report: { ...report, reportChecksum: "changed" } }, "https://example.test/review.html")).toThrow("complete");
-    expect(() => createMicrovernShareLink({ report: { ...report, summary: "x".repeat(20_000) } }, "https://example.test/review.html")).toThrow("too large");
+    expect(() => createMicrovernShareLink({ report: { ...report, reportChecksum: "changed" } } as unknown as Parameters<typeof createMicrovernShareLink>[0], "https://example.test/review.html")).toThrow("complete");
+    expect(() => createMicrovernShareLink({ report: { ...report, summary: "x".repeat(20_000) } } as unknown as Parameters<typeof createMicrovernShareLink>[0], "https://example.test/review.html")).toThrow("too large");
   });
 });

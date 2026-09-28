@@ -6,7 +6,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "build:docs": "node scripts/build-docs.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.test.json",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "start:mcp": "node dist/mcp-server.js",

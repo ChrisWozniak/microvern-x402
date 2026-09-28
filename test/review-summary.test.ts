@@ -28,7 +28,7 @@ describe("review summary", () => {
 
   it("orders the timeline and compares observed behavior with the submitted safeguards", () => {
     const summary = createMicrovernReviewSummary(report, { policy: { maxAlgoSend: 2, allowRekey: false } });
-    expect(summary.timeline.map((item) => item.type)).toEqual(["payment", "rekey"]);
+    expect(summary.timeline.map((item: { type: string }) => item.type)).toEqual(["payment", "rekey"]);
     expect(summary.timeline[1]).toMatchObject({ step: 2, accountControl: true });
     expect(summary.guardrails).toEqual(expect.arrayContaining([
       expect.objectContaining({ label: "ALGO maximum", expected: "2 ALGO", actual: "1.25 ALGO", outcome: "passed" }),

@@ -2,11 +2,7 @@ import algosdk from "algosdk";
 import { describe, expect, it } from "vitest";
 import { inspectUnsignedTransaction } from "../src/analyze.js";
 import { clearPrivateReportHistory, readPrivateReportHistory, removePrivateReport, savePrivateReport } from "../docs/assets/microvern-history.js";
-
-function memoryStorage() {
-  const values = new Map<string, string>();
-  return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) };
-}
+import { memoryStorage } from "./memory-storage.js";
 
 function fixture() {
   const account = algosdk.generateAccount();

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import algosdk from "algosdk";
+import { memoryStorage } from "./memory-storage.js";
 import {
   BUILT_IN_POLICY_TEMPLATES,
   clearIntentDraft,
@@ -12,11 +13,6 @@ import {
   upsertPolicy,
   writePolicyVault,
 } from "../docs/assets/microvern-policy-vault.js";
-
-function memoryStorage() {
-  const values = new Map<string, string>();
-  return { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => values.set(key, value), removeItem: (key: string) => values.delete(key) };
-}
 
 describe("browser-local policy vault", () => {
   it("provides conservative built-in templates", () => {

@@ -2,25 +2,35 @@ import { describe, expect, it, vi } from "vitest";
 import { createAgentInspectionWebhookEvent, deliverAgentInspectionWebhook, signAgentWebhookBody } from "../src/agent-webhook.js";
 import type { AgentInspectionResult } from "../src/agent-client.js";
 
-const result = {
+const result: AgentInspectionResult = {
   idempotencyKey: "agent-webhook-fixture",
   requestId: "support-correlation",
   paymentTransactionId: "W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA",
   paymentReceipt: {} as AgentInspectionResult["paymentReceipt"],
+  bazaarDiscovery: { status: "not-reported" },
   report: {
     verdict: "allow",
     riskScore: 0,
     summary: "No configured policy violation found.",
-    reviewSummary: { unsignedTransactionGroup: "never-send-this" },
+    reviewSummary: {
+      transactionCount: 1,
+      totalAlgoSent: "0",
+      totalUsdcSent: "0",
+      totalFeeAlgo: "0.001",
+      recipients: [],
+      assetIds: [],
+    },
     actions: [],
     findings: [],
     policyEvaluation: {},
-    rulesetVersion: "fixture",
+    rulesetVersion: "2026-09-mvp",
     disclaimer: "Decision support only.",
     requestHash: "a".repeat(64),
     reportChecksum: "b".repeat(64),
   },
-} as AgentInspectionResult;
+};
+
+Object.assign(result.report.reviewSummary, { unsignedTransactionGroup: "never-send-this" });
 
 describe("agent inspection webhooks", () => {
   it("creates a stable, sanitized completion event", () => {
@@ -39,7 +49,9 @@ describe("agent inspection webhooks", () => {
       fetchImplementation,
     });
     expect(event.reportId).toBe(result.report.requestHash);
-    const [target, init] = fetchImplementation.mock.calls[0] ?? [];
+    const call = fetchImplementation.mock.calls[0];
+    if (call === undefined) throw new Error("Expected webhook delivery fetch call.");
+    const [target, init] = call;
     expect(target.toString()).toBe("https://agent.example/hooks/microvern");
     expect(init?.redirect).toBe("error");
     expect(init?.headers).toMatchObject({ "x-microvern-webhook-event": "microvern.inspection.completed" });
