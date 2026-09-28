@@ -270,6 +270,9 @@ These are local, mocked-facilitator tests. They complement, rather than replace,
 
 ## Testnet paid-inspection client
 
+For the public browser's Pera + Ledger TestNet flow and safe recovery steps,
+see the [TestNet Pera + Ledger payment runbook](docs/testnet-pera-ledger-payment-runbook.md).
+
 `src/testnet-payer-client.ts` is a Node client for a single paid inspection. It only accepts Testnet `exact` USDC requirements for ASA `10458941`, capped at 10,000 atomic units (`$0.01`). It requires a base64-encoded 64-byte payer private key and an unsigned transaction group. Keep the key in your shell or an ignored local env file; never add it to the repository.
 
 ```powershell
