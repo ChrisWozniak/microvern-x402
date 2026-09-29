@@ -69,3 +69,38 @@ test("public review page is responsive, keyboard-navigable, and free of serious 
   });
   expect(seriousViolations).toEqual([]);
 });
+
+test("pinned MainNet quote presents Pera and Lute without initiating a payment", async ({ page }) => {
+  const quote = {
+    accepts: [{
+      scheme: "exact",
+      network: "algorand:wGHE2Pwdvd7S12BL5FaOP20EGYesN73ktiC1qzkkit8=",
+      amount: "10000",
+      extra: { asset: "31566704" },
+      payTo: "GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE",
+    }],
+  };
+  const paymentRequired = Buffer.from(JSON.stringify(quote)).toString("base64");
+  let quoteRequests = 0;
+
+  await page.route("https://microvern-x402-mainnet.onrender.com/v1/inspect-transaction", async (route) => {
+    quoteRequests += 1;
+    await route.fulfill({
+      status: 402,
+      headers: {
+        "access-control-allow-origin": "*",
+        "access-control-expose-headers": "payment-required",
+        "payment-required": paymentRequired,
+      },
+      body: JSON.stringify({ error: "Payment Required" }),
+    });
+  });
+  await page.goto(baseUrl);
+  await page.locator("#unsignedGroup").fill("local-no-spend-browser-check");
+  await page.locator("#quoteButton").click();
+
+  await expect(page.getByText("One-time MainNet Bazaar cataloging check")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Pera on MainNet and approve $0.01 USDC" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Connect Lute on MainNet and approve $0.01 USDC" })).toBeVisible();
+  expect(quoteRequests).toBe(1);
+});

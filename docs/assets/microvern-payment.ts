@@ -124,6 +124,39 @@ function createPeraSigner(wallet: PeraWalletConnect, address: string): ClientAvm
   };
 }
 
+interface LuteWallet {
+  connect(genesisId: string): Promise<string[]>;
+  signTxns(transactions: Array<{ txn: string; signers: string[] }>): Promise<(Uint8Array | null)[]>;
+}
+
+function base64Transaction(transaction: Uint8Array): string {
+  let binary = "";
+  for (const byte of transaction) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+/** Adapts Lute's ARC-1-compatible connector to x402's browser signer contract. */
+export function createLuteSigner(wallet: LuteWallet, address: string): ClientAvmSigner {
+  return {
+    address,
+    signTransactions: async (transactions, indexesToSign) => {
+      const requested = transactions.map((transaction, index) => ({
+        txn: base64Transaction(transaction),
+        signers: indexesToSign !== undefined && !indexesToSign.includes(index) ? [] : [address],
+      }));
+      const signed = await wallet.signTxns(requested);
+      if (signed.length !== transactions.length) {
+        throw new Error("Lute did not return one result for every transaction in the x402 payment group.");
+      }
+      return signed.map((result, index) => {
+        if (indexesToSign !== undefined && !indexesToSign.includes(index)) return null;
+        if (result === null) throw new Error("Lute did not return a required x402 payment signature.");
+        return Uint8Array.from(result);
+      });
+    },
+  };
+}
+
 export function payerReadinessError(
   address: string,
   state: "not-opted-in" | "insufficient-balance" | "unavailable",
@@ -163,36 +196,37 @@ async function requireReadyTestnetUsdcPayer(algorandClient: AlgorandClient, addr
 function mainnetPayerReadinessError(
   address: string,
   state: "not-opted-in" | "insufficient-balance" | "unavailable",
+  walletName = "Pera",
 ): Error {
   if (state === "not-opted-in") {
     return new Error(
-      `Pera selected ${address}, but it is not opted into MainNet USDC (ASA 31566704). `
-      + "Opt in through Pera first, then retrieve a new quote. No payment was signed.",
+      `${walletName} selected ${address}, but it is not opted into MainNet USDC (ASA 31566704). `
+      + `Opt in through ${walletName} first, then retrieve a new quote. No payment was signed.`,
     );
   }
   if (state === "insufficient-balance") {
     return new Error(
-      `Pera selected ${address}, but it has less than $0.01 MainNet USDC (10,000 units). `
+      `${walletName} selected ${address}, but it has less than $0.01 MainNet USDC (10,000 units). `
       + "Choose or fund a MainNet USDC account, then retrieve a new quote. No payment was signed.",
     );
   }
   return new Error(
-    `MicroVern could not verify whether Pera account ${address} can pay MainNet USDC. `
+    `MicroVern could not verify whether ${walletName} account ${address} can pay MainNet USDC. `
     + "No payment was signed; check the MainNet connection and try again.",
   );
 }
 
-async function requireReadyMainnetUsdcPayer(algorandClient: AlgorandClient, address: string): Promise<void> {
+async function requireReadyMainnetUsdcPayer(algorandClient: AlgorandClient, address: string, walletName = "Pera"): Promise<void> {
   try {
     const holding = await algorandClient.asset.getAccountInformation(address, MAINNET_USDC_ASSET_ID);
-    if (holding.balance < MAINNET_PAYMENT_AMOUNT) throw mainnetPayerReadinessError(address, "insufficient-balance");
+    if (holding.balance < MAINNET_PAYMENT_AMOUNT) throw mainnetPayerReadinessError(address, "insufficient-balance", walletName);
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Pera selected")) throw error;
+    if (error instanceof Error && error.message.startsWith(`${walletName} selected`)) throw error;
     const detail = error instanceof Error ? error.message : "";
     if (/\b404\b|not found|missing asset|asset.*missing/iu.test(detail)) {
-      throw mainnetPayerReadinessError(address, "not-opted-in");
+      throw mainnetPayerReadinessError(address, "not-opted-in", walletName);
     }
-    throw mainnetPayerReadinessError(address, "unavailable");
+    throw mainnetPayerReadinessError(address, "unavailable", walletName);
   }
 }
 
@@ -200,10 +234,10 @@ async function requireReadyMainnetUsdcPayer(algorandClient: AlgorandClient, addr
  * A Bazaar cataloging payment must come from a customer-controlled account,
  * not the merchant account that is configured to receive it.
  */
-export function assertDistinctMainnetPayer(address: string, receiver: string): void {
+export function assertDistinctMainnetPayer(address: string, receiver: string, walletName = "Pera"): void {
   if (address === receiver) {
     throw new Error(
-      "Pera selected MicroVern's payment-recipient account. Choose a separate MainNet Ledger account with USDC; "
+      `${walletName} selected MicroVern's payment-recipient account. Choose a separate MainNet account with USDC; `
       + "a self-payment is not a valid Bazaar cataloging check. No payment was signed.",
     );
   }
@@ -313,14 +347,17 @@ export async function payForMicrovernTestnetInspection(
   };
 }
 
-/**
- * A deliberately narrow MainNet path for the operator's one-time Bazaar
- * cataloging check. It is not a general-purpose MainNet browser payment API.
- */
-export async function payForMicrovernMainnetBazaarInspection(
+interface MainnetPayer {
+  readonly address: string;
+  readonly signer: ClientAvmSigner;
+  readonly walletName: "Pera" | "Lute";
+}
+
+async function completeMainnetBazaarInspection(
   serviceUrl: string,
   request: InspectionRequest,
   displayedQuote: PaymentRequired,
+  payer: MainnetPayer,
 ): Promise<BrowserPaidInspectionResult> {
   if (!isMicrovernMainnetBrowserOrigin(serviceUrl)) {
     throw new Error("MainNet browser payment is available only for MicroVern's pinned MainNet service.");
@@ -330,17 +367,12 @@ export async function payForMicrovernMainnetBazaarInspection(
   }
 
   const displayedRequirement = selectCappedMainnetPaymentRequirement(displayedQuote.accepts);
-  // Always start a fresh MainNet WalletConnect pairing. This prevents a prior
-  // TestNet pairing in this browser from being silently reused for this action.
-  const wallet = new PeraWalletConnect({ chainId: 416001, compactMode: true });
-  const address = await restoreOrConnectPeraSession(wallet, true, "MainNet");
-  assertDistinctMainnetPayer(address, displayedRequirement.payTo as string);
-  const signer = createPeraSigner(wallet, address);
+  assertDistinctMainnetPayer(payer.address, displayedRequirement.payTo as string, payer.walletName);
   const algorandClient = AlgorandClient.mainNet()
     .setDefaultValidityWindow(MAINNET_PAYMENT_VALIDITY_ROUNDS);
-  await requireReadyMainnetUsdcPayer(algorandClient, address);
+  await requireReadyMainnetUsdcPayer(algorandClient, payer.address, payer.walletName);
   const client = new x402Client()
-    .register(MICROVERN_MAINNET_CAIP2, new ExactAvmScheme(signer, { algorandClient }));
+    .register(MICROVERN_MAINNET_CAIP2, new ExactAvmScheme(payer.signer, { algorandClient }));
   client.registerPolicy((_version, requirements) => requirements.filter((requirement) => {
     try {
       return sameCappedPaymentRequirement(
@@ -390,7 +422,46 @@ export async function payForMicrovernMainnetBazaarInspection(
   return {
     report: body as InspectionReport,
     paymentTransactionId: receipt.transaction,
-    payerAddress: address,
+    payerAddress: payer.address,
     bazaarDiscovery: decodeBazaarDiscoveryOutcome(response.headers.get("extension-responses")),
   };
+}
+
+/**
+ * A deliberately narrow MainNet path for the operator's one-time Bazaar
+ * cataloging check. It is not a general-purpose MainNet browser payment API.
+ */
+export async function payForMicrovernMainnetBazaarInspection(
+  serviceUrl: string,
+  request: InspectionRequest,
+  displayedQuote: PaymentRequired,
+): Promise<BrowserPaidInspectionResult> {
+  // Always start a fresh MainNet WalletConnect pairing. This prevents a prior
+  // TestNet pairing in this browser from being silently reused for this action.
+  const wallet = new PeraWalletConnect({ chainId: 416001, compactMode: true });
+  const address = await restoreOrConnectPeraSession(wallet, true, "MainNet");
+  return completeMainnetBazaarInspection(serviceUrl, request, displayedQuote, {
+    address,
+    signer: createPeraSigner(wallet, address),
+    walletName: "Pera",
+  });
+}
+
+/** Uses Lute's user-approved MainNet signing flow for the same pinned Bazaar payment. */
+export async function payForMicrovernMainnetBazaarInspectionWithLute(
+  serviceUrl: string,
+  request: InspectionRequest,
+  displayedQuote: PaymentRequired,
+): Promise<BrowserPaidInspectionResult> {
+  // Lute's connector reads window while it initializes, so load it only from
+  // this browser-only, user-initiated path. This keeps server-side tests safe.
+  const { default: LuteConnect } = await import("@galaxypay/lute-connect");
+  const wallet = new LuteConnect("MicroVern");
+  const address = (await wallet.connect("mainnet-v1.0"))[0];
+  if (address === undefined) throw new Error("Lute did not provide a MainNet account to use for the cataloging payment.");
+  return completeMainnetBazaarInspection(serviceUrl, request, displayedQuote, {
+    address,
+    signer: createLuteSigner(wallet, address),
+    walletName: "Lute",
+  });
 }

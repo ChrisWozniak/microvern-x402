@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assertDistinctMainnetPayer,
+  createLuteSigner,
   decodeBazaarDiscoveryOutcome,
   MAINNET_PAYMENT_VALIDITY_ROUNDS,
   payerReadinessError,
@@ -31,6 +32,39 @@ describe("browser x402 payment diagnostics", () => {
     expect(() => assertDistinctMainnetPayer("GOXRRECIPIENT", "GOXRRECIPIENT"))
       .toThrow("self-payment is not a valid Bazaar cataloging check");
     expect(() => assertDistinctMainnetPayer("KUBSPPAYER", "GOXRRECIPIENT")).not.toThrow();
+  });
+
+  it("adapts Lute signatures to the exact x402 group indexes requested", async () => {
+    const requests: Array<{ txn: string; signers: string[] }> = [];
+    const signer = createLuteSigner({
+      connect: async () => ["LUTEPAYER"],
+      signTxns: async (transactions) => {
+        requests.push(...transactions);
+        return [new Uint8Array([9, 8]), null];
+      },
+    }, "LUTEPAYER");
+
+    const signed = await signer.signTransactions([
+      new Uint8Array([1, 2, 3]),
+      new Uint8Array([4, 5, 6]),
+    ], [0]);
+
+    expect(requests).toEqual([
+      { txn: "AQID", signers: ["LUTEPAYER"] },
+      { txn: "BAUG", signers: [] },
+    ]);
+    expect([...signed[0]!]).toEqual([9, 8]);
+    expect(signed[1]).toBeNull();
+  });
+
+  it("rejects an incomplete Lute x402 signature response", async () => {
+    const signer = createLuteSigner({
+      connect: async () => ["LUTEPAYER"],
+      signTxns: async () => [new Uint8Array([1])],
+    }, "LUTEPAYER");
+
+    await expect(signer.signTransactions([new Uint8Array([1]), new Uint8Array([2])]))
+      .rejects.toThrow("one result for every transaction");
   });
 
   it("identifies a selected account that lacks the TestNet USDC opt-in", () => {

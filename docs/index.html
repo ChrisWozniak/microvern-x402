@@ -251,5 +251,65 @@
     async function payForMainnetCataloging(button,acknowledgement){const readyLabel="Connect Pera on MainNet and approve $0.01 USDC";try{if(!acknowledgement.checked)throw Error("Confirm that you understand this uses real MainNet USDC before opening Pera.");const body=request();if(reviewState.quote===null||reviewState.quoteRequest!==JSON.stringify(body))throw Error("The request or safeguards changed after the quote. Retrieve and review a new quote before payment.");selectedMainnetCatalogOffer(reviewState.quote.accepts);busy(button,true,"Connecting to Pera on MainNet");status("Opening a fresh Pera MainNet pairing. On Pera and Ledger approve only the displayed $0.01 USDC report payment; do not approve if any value differs.","info");const payment=await import("./assets/microvern-payment.js");const result=await payment.payForMicrovernMainnetBazaarInspection($("serviceUrl").value.trim(),body,reviewState.quote);reviewState.paymentTransactionId=result.paymentTransactionId;reviewState.bazaarDiscovery=result.bazaarDiscovery;enhancedReport(result.report);appendMainnetCatalogReceipt(result);status("MainNet inspection completed. Settlement transaction: "+result.paymentTransactionId+". Bazaar result: "+result.bazaarDiscovery.status+".","ok")}catch(error){status(error.message||"Unable to complete the MainNet cataloging payment. No additional payment was attempted.","error")}finally{busy(button,false,readyLabel)}}
     renderQuote=function(data,body){if(!isMainnetCatalogTarget())return mainnetQuoteRenderer(data,body);const offer=selectedMainnetCatalogOffer(data.accepts);reviewState.quote=data;reviewState.quoteRequest=JSON.stringify(body);reviewState.mainnetCatalogOffer=offer;const box=$("quote");box.className="quote show";box.replaceChildren();const heading=document.createElement("strong");heading.textContent="One-time MainNet Bazaar cataloging check";const help=document.createElement("p");help.className="helper";help.textContent="This separate $0.01 USDC report payment is for the authorized MainNet cataloging check. It never asks Pera or Ledger to sign or broadcast the unsigned group you pasted.";const dl=document.createElement("dl");quoteField(dl,"Payment method","exact x402 payment");quoteField(dl,"Network","Algorand MainNet");quoteField(dl,"Amount you will approve","$0.01 USDC");quoteField(dl,"Technical amount","10,000 atomic units (1 USDC = 1,000,000 units)");quoteField(dl,"Asset","USDC (ASA 31566704)");quoteField(dl,"Payment receiver",mainnetCatalogReceiver);box.append(heading,help,dl);const details=document.createElement("details"),summary=document.createElement("summary"),copy=document.createElement("p");summary.textContent="What Pera and Ledger will sign";copy.className="technical";copy.textContent="Only the separate x402 USDC payment above. The pasted unsigned transaction group stays in this page and is never submitted to Pera for signing or broadcast.";details.append(summary,copy);box.append(details);const acknowledgement=document.createElement("label"),check=document.createElement("input"),ackText=document.createElement("span");acknowledgement.className="check";check.type="checkbox";ackText.textContent="I understand this uses real MainNet USDC and I will verify the amount, USDC asset, and receiver on Ledger before approving.";acknowledgement.append(check,ackText);const pay=document.createElement("button");pay.type="button";pay.className="secondary";pay.style.marginTop="14px";pay.textContent="Connect Pera on MainNet and approve $0.01 USDC";pay.onclick=()=>payForMainnetCataloging(pay,check);const note=document.createElement("p");note.className="note";note.textContent="This control is not a general MainNet payment feature. It works only with the exact pinned MicroVern service, Algorand MainNet USDC, receiver, and $0.01 amount shown above.";box.append(acknowledgement,pay,note)};
   </script>
+  <script>
+    /* Local-only wallet choice for the existing, pinned MainNet Bazaar payment. */
+    const renderMainnetCatalogQuoteWithPera = renderQuote;
+    const legacyAppendMainnetCatalogReceipt = appendMainnetCatalogReceipt;
+
+    appendMainnetCatalogReceipt = (result, walletName = "Pera") => {
+      legacyAppendMainnetCatalogReceipt(result);
+      const help = $("quote").querySelector(".helper");
+      if (help) help.textContent = `${walletName} approved only the separate $0.01 USDC x402 payment. MicroVern did not sign or broadcast the pasted unsigned group.`;
+    };
+
+    payForMainnetCataloging = async (button, acknowledgement, walletKind = "pera") => {
+      const walletName = walletKind === "lute" ? "Lute" : "Pera";
+      const readyLabel = `Connect ${walletName} on MainNet and approve $0.01 USDC`;
+      try {
+        if (!acknowledgement.checked) throw Error(`Confirm that you understand this uses real MainNet USDC before opening ${walletName}.`);
+        const body = request();
+        if (reviewState.quote === null || reviewState.quoteRequest !== JSON.stringify(body)) {
+          throw Error("The request or safeguards changed after the quote. Retrieve and review a new quote before payment.");
+        }
+        selectedMainnetCatalogOffer(reviewState.quote.accepts);
+        busy(button, true, `Connecting to ${walletName} on MainNet`);
+        status(`Opening ${walletName}. Approve only the displayed $0.01 USDC report payment; do not approve if any value differs.`, "info");
+        const payment = await import("./assets/microvern-payment.js");
+        const result = walletKind === "lute"
+          ? await payment.payForMicrovernMainnetBazaarInspectionWithLute($("serviceUrl").value.trim(), body, reviewState.quote)
+          : await payment.payForMicrovernMainnetBazaarInspection($("serviceUrl").value.trim(), body, reviewState.quote);
+        reviewState.paymentTransactionId = result.paymentTransactionId;
+        reviewState.bazaarDiscovery = result.bazaarDiscovery;
+        enhancedReport(result.report);
+        appendMainnetCatalogReceipt(result, walletName);
+        status(`MainNet inspection completed. Settlement transaction: ${result.paymentTransactionId}. Bazaar result: ${result.bazaarDiscovery.status}.`, "ok");
+      } catch (error) {
+        status(error.message || `Unable to complete the MainNet ${walletName} payment. No additional payment was attempted.`, "error");
+      } finally {
+        busy(button, false, readyLabel);
+      }
+    };
+
+    renderQuote = (data, body) => {
+      renderMainnetCatalogQuoteWithPera(data, body);
+      if (!isMainnetCatalogTarget()) return;
+      const box = $("quote");
+      const acknowledgement = box.querySelector("input[type=checkbox]");
+      const peraButton = [...box.querySelectorAll("button")].find((button) => button.textContent.includes("Connect Pera"));
+      if (!(acknowledgement instanceof HTMLInputElement) || !(peraButton instanceof HTMLButtonElement)) return;
+      peraButton.onclick = () => payForMainnetCataloging(peraButton, acknowledgement, "pera");
+      const luteButton = document.createElement("button");
+      luteButton.type = "button";
+      luteButton.className = "secondary";
+      luteButton.style.marginTop = "14px";
+      luteButton.textContent = "Connect Lute on MainNet and approve $0.01 USDC";
+      luteButton.onclick = () => payForMainnetCataloging(luteButton, acknowledgement, "lute");
+      peraButton.after(luteButton);
+      const note = document.createElement("p");
+      note.className = "note";
+      note.textContent = "Choose one wallet. Both routes sign the same pinned x402 payment only after you confirm the amount, USDC asset, and receiver.";
+      luteButton.after(note);
+    };
+  </script>
 </body>
 </html>
