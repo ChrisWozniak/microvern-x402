@@ -102,5 +102,14 @@ test("pinned MainNet quote presents Pera and Lute without initiating a payment",
   await expect(page.getByText("One-time MainNet Bazaar cataloging check")).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Pera on MainNet and approve $0.01 USDC" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Lute on MainNet and approve $0.01 USDC" })).toBeVisible();
+  const transactionId = "J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA";
+  await page.evaluate((id) => {
+    const preview = window as unknown as Window & {
+      appendMainnetCatalogReceipt: (result: { paymentTransactionId: string; bazaarDiscovery: { status: string } }) => void;
+    };
+    preview.appendMainnetCatalogReceipt({ paymentTransactionId: id, bazaarDiscovery: { status: "not-reported" } });
+  }, transactionId);
+  await expect(page.getByRole("link", { name: "Open settlement on Allo" }))
+    .toHaveAttribute("href", `https://allo.info/tx/${transactionId}`);
   expect(quoteRequests).toBe(1);
 });
