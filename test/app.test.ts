@@ -84,6 +84,7 @@ describe("MicroVern Stage 1 API", () => {
     expect(response.headers.get("access-control-allow-headers")).toContain("Idempotency-Key");
     expect(response.headers.get("access-control-allow-headers")).toContain("Access-Control-Expose-Headers");
     expect(response.headers.get("access-control-allow-headers")).toContain("Payment-Signature");
+    expect(response.headers.get("access-control-expose-headers")).toContain("Extension-Responses");
     expect(response.headers.get("access-control-expose-headers")).toContain("X-MicroVern-Report-Id");
   });
 
@@ -98,6 +99,7 @@ describe("MicroVern Stage 1 API", () => {
     ));
     expect(response.status).toBe(402);
     expect(response.headers.get("access-control-allow-origin")).toBe("https://chriswozniak.github.io");
+    expect(response.headers.get("access-control-expose-headers")).toContain("Extension-Responses");
     expect(response.headers.get("access-control-expose-headers")).toContain("Payment-Required");
   });
 
