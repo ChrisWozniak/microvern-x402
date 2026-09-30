@@ -3,6 +3,7 @@ const REPORT_ID_PATTERN = /^[a-f0-9]{64}$/u;
 const TRANSACTION_ID_PATTERN = /^[A-Z2-7]{52}$/u;
 const MAX_RECORDS = 40;
 const MAX_HISTORY_BYTES = 1_000_000;
+const RECEIPT_HOSTS = new Set(["goplausible.xyz", "facilitator.goplausible.xyz"]);
 
 function isObject(value) {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -36,17 +37,42 @@ function requiredReport(report) {
   return sanitizeValue(safeReport);
 }
 
+function requiredReceiptUrl(value) {
+  if (typeof value !== "string") throw new Error("format");
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || !RECEIPT_HOSTS.has(parsed.hostname) || !parsed.pathname.startsWith("/api/receipt/")) throw new Error("format");
+    return parsed.toString();
+  } catch {
+    throw new Error("format");
+  }
+}
+
+function requiredTimestamp(value) {
+  if (typeof value !== "string" || Number.isNaN(Date.parse(value))) throw new Error("format");
+  return new Date(value).toISOString();
+}
+
 function normalizeRecord(record) {
   if (!isObject(record) || typeof record.savedAt !== "string") throw new Error("format");
   const report = requiredReport(record.report);
   if (record.paymentTransactionId !== undefined && (typeof record.paymentTransactionId !== "string" || !TRANSACTION_ID_PATTERN.test(record.paymentTransactionId))) {
     throw new Error("format");
   }
+  if (record.facilitatorReceiptUrl !== undefined) {
+    if (record.paymentTransactionId === undefined || record.facilitatorReceiptExpiresAt === undefined) throw new Error("format");
+    requiredReceiptUrl(record.facilitatorReceiptUrl);
+    requiredTimestamp(record.facilitatorReceiptExpiresAt);
+  }
   return {
     reportId: report.requestHash,
     savedAt: record.savedAt,
     report,
     ...(record.paymentTransactionId === undefined ? {} : { paymentTransactionId: record.paymentTransactionId }),
+    ...(record.facilitatorReceiptUrl === undefined ? {} : {
+      facilitatorReceiptUrl: requiredReceiptUrl(record.facilitatorReceiptUrl),
+      facilitatorReceiptExpiresAt: requiredTimestamp(record.facilitatorReceiptExpiresAt),
+    }),
   };
 }
 
@@ -78,12 +104,27 @@ export function savePrivateReport(record, storage = globalThis.localStorage, now
   if (record?.paymentTransactionId !== undefined && (typeof record.paymentTransactionId !== "string" || !TRANSACTION_ID_PATTERN.test(record.paymentTransactionId))) {
     throw new Error("Payment transaction ID must be a 52-character Algorand transaction ID.");
   }
+  if (record?.facilitatorReceiptUrl !== undefined) {
+    if (record?.paymentTransactionId === undefined || record?.facilitatorReceiptExpiresAt === undefined) {
+      throw new Error("A receipt URL requires a payment transaction ID and receipt expiry time.");
+    }
+    try {
+      requiredReceiptUrl(record.facilitatorReceiptUrl);
+      requiredTimestamp(record.facilitatorReceiptExpiresAt);
+    } catch {
+      throw new Error("Receipt URL must be an HTTPS GoPlausible /api/receipt/ link with a valid expiry time.");
+    }
+  }
   const existing = readPrivateReportHistory(storage).filter((item) => item.reportId !== report.requestHash);
   const saved = {
     reportId: report.requestHash,
     savedAt: now.toISOString(),
     report,
     ...(record.paymentTransactionId === undefined ? {} : { paymentTransactionId: record.paymentTransactionId }),
+    ...(record.facilitatorReceiptUrl === undefined ? {} : {
+      facilitatorReceiptUrl: requiredReceiptUrl(record.facilitatorReceiptUrl),
+      facilitatorReceiptExpiresAt: requiredTimestamp(record.facilitatorReceiptExpiresAt),
+    }),
   };
   return writeRecords([saved, ...existing], storage);
 }

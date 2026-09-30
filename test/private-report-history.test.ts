@@ -40,4 +40,26 @@ describe("private browser report history", () => {
     expect(() => savePrivateReport({ report: { verdict: "allow" } }, storage)).toThrow("complete");
     expect(() => savePrivateReport({ report: fixture(), paymentTransactionId: "not-a-transaction" }, storage)).toThrow("Payment transaction ID");
   });
+
+  it("stores an opt-in GoPlausible receipt link and its expiry without the unsigned group", () => {
+    const storage = memoryStorage();
+    const report = fixture();
+    const transactionId = "J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA";
+    const receiptUrl = "https://goplausible.xyz/api/receipt/efb0bd2c3d6e07e2975fe6e643d19dfc";
+    const records = savePrivateReport({
+      report,
+      paymentTransactionId: transactionId,
+      facilitatorReceiptUrl: receiptUrl,
+      facilitatorReceiptExpiresAt: "2026-12-28T19:17:00.000Z",
+    }, storage);
+    expect(records[0]).toMatchObject({ paymentTransactionId: transactionId, facilitatorReceiptUrl: receiptUrl, facilitatorReceiptExpiresAt: "2026-12-28T19:17:00.000Z" });
+    expect(JSON.stringify(records)).not.toContain("unsignedTransactionGroup");
+  });
+
+  it("rejects receipt links outside GoPlausible or without a receipt expiry", () => {
+    const storage = memoryStorage();
+    const transactionId = "J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA";
+    expect(() => savePrivateReport({ report: fixture(), paymentTransactionId: transactionId, facilitatorReceiptUrl: "https://example.com/api/receipt/not-a-receipt", facilitatorReceiptExpiresAt: "2026-12-28T19:17:00.000Z" }, storage)).toThrow("Receipt URL");
+    expect(() => savePrivateReport({ report: fixture(), paymentTransactionId: transactionId, facilitatorReceiptUrl: "https://goplausible.xyz/api/receipt/valid" }, storage)).toThrow("receipt expiry");
+  });
 });

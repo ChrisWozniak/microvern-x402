@@ -279,6 +279,7 @@
           ? await payment.payForMicrovernMainnetBazaarInspectionWithLute($("serviceUrl").value.trim(), body, reviewState.quote)
           : await payment.payForMicrovernMainnetBazaarInspection($("serviceUrl").value.trim(), body, reviewState.quote);
         reviewState.paymentTransactionId = result.paymentTransactionId;
+        reviewState.paymentSettledAt = new Date().toISOString();
         reviewState.bazaarDiscovery = result.bazaarDiscovery;
         enhancedReport(result.report);
         appendMainnetCatalogReceipt(result, walletName);
@@ -309,6 +310,63 @@
       note.className = "note";
       note.textContent = "Choose one wallet. Both routes sign the same pinned x402 payment only after you confirm the amount, USDC asset, and receiver.";
       luteButton.after(note);
+    };
+  </script>
+  <script>
+    /* Saving payment evidence is always user initiated and browser-local. */
+    const receiptSaveAppendMainnetCatalogReceipt = appendMainnetCatalogReceipt;
+
+    function receiptExpiry(settledAt) {
+      const expiry = new Date(settledAt);
+      expiry.setUTCDate(expiry.getUTCDate() + 90);
+      return expiry.toISOString();
+    }
+
+    appendMainnetCatalogReceipt = (result, walletName = "Pera") => {
+      receiptSaveAppendMainnetCatalogReceipt(result, walletName);
+      const box = $("quote");
+      const saveBox = document.createElement("details");
+      saveBox.className = "advanced-report";
+      const summary = document.createElement("summary");
+      summary.textContent = "Save payment receipt privately";
+      const help = document.createElement("p");
+      help.className = "helper";
+      help.textContent = "Optional: save this settlement link in this browser. You may also paste the GoPlausible receipt URL; its receipt is valid for 90 days. Nothing is uploaded and the unsigned group is never saved.";
+      const field = document.createElement("div");
+      field.className = "field";
+      const label = document.createElement("label");
+      const receiptId = `goplausible-receipt-${result.paymentTransactionId}`;
+      label.htmlFor = receiptId;
+      label.textContent = "GoPlausible receipt URL (optional)";
+      const receiptUrl = document.createElement("input");
+      receiptUrl.type = "url";
+      receiptUrl.id = receiptId;
+      receiptUrl.placeholder = "https://goplausible.xyz/api/receipt/...";
+      receiptUrl.autocomplete = "off";
+      field.append(label, receiptUrl);
+      const save = document.createElement("button");
+      save.type = "button";
+      save.className = "secondary";
+      save.textContent = "Save payment receipt privately";
+      save.onclick = () => {
+        try {
+          if (!window.microvernSavePrivateReport || !reviewState.report) throw Error("The paid report is not available to save in this browser session.");
+          const receipt = receiptUrl.value.trim();
+          const settledAt = reviewState.paymentSettledAt || new Date().toISOString();
+          window.microvernSavePrivateReport({
+            report: reviewState.report,
+            paymentTransactionId: result.paymentTransactionId,
+            ...(receipt ? { facilitatorReceiptUrl: receipt, facilitatorReceiptExpiresAt: receiptExpiry(settledAt) } : {}),
+          });
+          save.disabled = true;
+          save.textContent = "Saved privately in this browser";
+          status(receipt ? `Payment receipt saved locally. GoPlausible receipt link is recorded as valid until ${new Date(receiptExpiry(settledAt)).toLocaleString()}.` : "Allo settlement link saved locally. Paste a GoPlausible receipt URL before saving if you want to retain that 90-day link too.", "ok");
+        } catch (error) {
+          status(error.message || "Unable to save the private payment receipt.", "error");
+        }
+      };
+      saveBox.append(summary, help, field, save);
+      box.append(saveBox);
     };
   </script>
 </body>

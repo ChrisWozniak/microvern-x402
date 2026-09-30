@@ -104,12 +104,12 @@ test("pinned MainNet quote presents Pera and Lute without initiating a payment",
   await expect(page.getByRole("button", { name: "Connect Lute on MainNet and approve $0.01 USDC" })).toBeVisible();
   const transactionId = "J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA";
   await page.evaluate((id) => {
-    const preview = window as unknown as Window & {
-      appendMainnetCatalogReceipt: (result: { paymentTransactionId: string; bazaarDiscovery: { status: string } }) => void;
-    };
-    preview.appendMainnetCatalogReceipt({ paymentTransactionId: id, bazaarDiscovery: { status: "not-reported" } });
+    window.eval(`appendMainnetCatalogReceipt({ paymentTransactionId: ${JSON.stringify(id)}, bazaarDiscovery: { status: "not-reported" } })`);
   }, transactionId);
   await expect(page.getByRole("link", { name: "Open settlement on Allo" }))
     .toHaveAttribute("href", `https://allo.info/tx/${transactionId}`);
+  await page.locator("summary", { hasText: "Save payment receipt privately" }).click();
+  await expect(page.getByRole("button", { name: "Save payment receipt privately" })).toBeVisible();
+  await expect(page.getByLabel("GoPlausible receipt URL (optional)")).toBeVisible();
   expect(quoteRequests).toBe(1);
 });
