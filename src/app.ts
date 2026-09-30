@@ -437,7 +437,7 @@ function addBrowserReviewCors(app: Hono): void {
   app.use("*", async (c, next) => {
     if (c.req.header("origin") === MICROVERN_REVIEW_ORIGIN) {
       c.header("Access-Control-Allow-Origin", MICROVERN_REVIEW_ORIGIN);
-      c.header("Access-Control-Expose-Headers", "Payment-Required, Payment-Response, Retry-After, X-Idempotent-Replay, X-MicroVern-Report-Id, X-Request-Id");
+      c.header("Access-Control-Expose-Headers", "Extension-Responses, Payment-Required, Payment-Response, Retry-After, X-Idempotent-Replay, X-MicroVern-Report-Id, X-Request-Id");
       c.header("Vary", "Origin");
     }
     await next();
@@ -448,7 +448,7 @@ function addBrowserReviewCors(app: Hono): void {
     // @x402/fetch adds this request header to its paid browser retry so the
     // caller can read PAYMENT-RESPONSE. It must be preflight-approved too.
     allowHeaders: ["Content-Type", "Idempotency-Key", "X-Request-Id", "Payment-Signature", "X-Payment", "Access-Control-Expose-Headers"],
-    exposeHeaders: ["Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-MicroVern-Report-Id", "X-Request-Id"],
+    exposeHeaders: ["Extension-Responses", "Payment-Required", "Payment-Response", "Retry-After", "X-Idempotent-Replay", "X-MicroVern-Report-Id", "X-Request-Id"],
     maxAge: 86_400,
   }));
 }

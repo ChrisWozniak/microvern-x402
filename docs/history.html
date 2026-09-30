@@ -47,5 +47,45 @@
     $("clearAll").onclick = () => { if (!window.confirm("Remove every saved MicroVern report from this browser?")) return; clearPrivateReportHistory(); render(); status("All private browser history was removed.", "ok"); };
     render();
   </script>
+  <script type="module">
+    import { readPrivateReportHistory } from "./assets/microvern-history.js";
+
+    const historyRoot = document.getElementById("history");
+    const settlementUrl = (transactionId) => `https://allo.info/tx/${encodeURIComponent(transactionId)}`;
+    const addReceiptLinks = () => {
+      let records;
+      try { records = readPrivateReportHistory(); } catch { return; }
+      [...historyRoot.querySelectorAll(".entry")].forEach((card, index) => {
+        if (card.querySelector(".payment-evidence")) return;
+        const record = records[index];
+        if (!record?.paymentTransactionId) return;
+        const evidence = document.createElement("p");
+        evidence.className = "payment-evidence note";
+        const settlement = document.createElement("a");
+        settlement.target = "_blank";
+        settlement.rel = "noreferrer";
+        settlement.href = settlementUrl(record.paymentTransactionId);
+        settlement.textContent = "Open settlement on Allo";
+        evidence.append(settlement);
+        if (record.facilitatorReceiptUrl) {
+          const receipt = document.createElement("a");
+          receipt.target = "_blank";
+          receipt.rel = "noreferrer";
+          receipt.href = record.facilitatorReceiptUrl;
+          receipt.textContent = "Open GoPlausible receipt";
+          evidence.append(document.createTextNode(" · "), receipt, document.createTextNode(` · link recorded valid until ${new Date(record.facilitatorReceiptExpiresAt).toLocaleString()}`));
+        }
+        card.querySelector(".actions")?.before(evidence);
+      });
+    };
+    new MutationObserver(addReceiptLinks).observe(historyRoot, { childList: true });
+    addReceiptLinks();
+    const privacy = document.querySelector(".privacy");
+    if (privacy) {
+      const note = document.createElement("p");
+      note.textContent = "When you explicitly save a paid receipt, the local record may include its Algorand settlement link and the GoPlausible receipt URL you paste. GoPlausible receipt links are recorded as valid for 90 days.";
+      privacy.append(note);
+    }
+  </script>
 </body>
 </html>
