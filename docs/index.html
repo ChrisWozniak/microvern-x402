@@ -95,7 +95,7 @@
   <main id="main-content" tabindex="-1">
     <nav aria-label="Primary"><div class="brand"><img src="./assets/microvern-icon.svg?v=violet-2" alt=""><span>MicroVern</span></div><div class="nav-links"><a href="#review" aria-current="page">Review</a><a href="#how">How it works</a><details class="tools-menu"><summary>More security tools</summary><div class="tools-menu-panel"><a href="./policies.html">Saved safeguards</a><a href="./intent.html">Intent check</a><a href="./history.html">Private history</a><a href="./verify.html">Verify report</a><a href="./review.html">Share a report</a></div></details><a href="./agents.html">Docs</a><a class="tag" href="https://dev.algorand.co/resources/x402-on-algorand/" target="_blank" rel="noopener noreferrer" aria-label="Learn about the Algorand x402 protocol (opens in a new tab)" title="Learn how Algorand x402 payments work">Algorand x402 &#8599;</a></div></nav>
     <header class="hero"><div class="eyebrow">Clarity before commitment.</div><h1>Know what you <em>sign.</em></h1><p class="lead">Paste a transaction. Get a clear, plain-language review before you approve.</p><div class="actions"><a class="button" href="#review">Start a free check</a><a class="button secondary" href="https://github.com/ChrisWozniak/microvern-x402">View source</a></div></header>
-    <section class="before-continue" aria-labelledby="before-continue-title"><div class="before-continue-copy"><div class="step">Before you continue</div><h2 id="before-continue-title">Your wallet stays in control.</h2><p>Start the review with the safeguards below. MicroVern explains an unsigned group; it never becomes your wallet.</p></div><ul class="trust"><li>No seed phrase or private key is requested.</li><li>MicroVern never signs or broadcasts the group under review.</li><li>You see separate report-payment terms before a compatible wallet or agent can approve them.</li><li>More security tools stay available when you need them.</li></ul></section>
+    <section class="before-continue" aria-labelledby="before-continue-title"><div class="before-continue-copy"><div class="step">Before you continue</div><h2 id="before-continue-title">Your wallet stays in control.</h2><p>Start the review with the safeguards below. MicroVern explains an unsigned group; it never becomes your wallet.</p></div><ul class="trust"><li>No seed phrase or private key is requested.</li><li>MicroVern never signs or broadcasts the group under review.</li><li>You see separate report-payment terms before Pera, Lute, or an agent can approve them.</li><li>More security tools stay available when you need them.</li></ul></section>
     <section id="review"><div class="eyebrow">Human review</div><h2 class="section-title">Three steps. One clear decision.</h2><p class="intro">Start with a free structural check. A protected report can have a separately disclosed x402 price; it never signs, broadcasts, or pays for the group you are reviewing.</p><ol class="review-flow" aria-label="Three-step review flow"><li class="is-active"><span class="flow-number">1</span><span class="flow-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9Z"/><path d="M14 3v6h6M8 13h8M8 17h6"/></svg></span><strong>Add or load</strong><p>Paste a transaction group or use a test example.</p></li><li><span class="flow-number">2</span><span class="flow-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.2-4.2"/></svg></span><strong>Run a free check</strong><p>MicroVern analyzes and verifies the request.</p></li><li><span class="flow-number">3</span><span class="flow-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><strong>Read the decision</strong><p>See the plain-language result and review details.</p></li></ol>
       <div class="review"><div class="composer"><div class="step">Step 1 · define the request</div><h3>Unsigned transaction group</h3><p class="helper">Paste a <span class="input-format">base64-encoded unsigned transaction group</span>. It may contain one to sixteen concatenated transactions; signed transactions are rejected.</p>
         <div class="two"><div class="field"><label for="network">Transaction network</label><select id="network"><option value="algorand-mainnet">Algorand MainNet</option><option value="algorand-testnet">Algorand TestNet</option></select></div><div class="field"><label for="serviceUrl">MicroVern API</label><input id="serviceUrl" type="url" value="https://microvern-x402-mainnet.onrender.com" spellcheck="false"></div></div><p class="note">The live MainNet service is selected. Confirm this URL before contacting it.</p>
@@ -298,6 +298,12 @@
       const acknowledgement = box.querySelector("input[type=checkbox]");
       const peraButton = [...box.querySelectorAll("button")].find((button) => button.textContent.includes("Connect Pera"));
       if (!(acknowledgement instanceof HTMLInputElement) || !(peraButton instanceof HTMLButtonElement)) return;
+      const signingSummary = [...box.querySelectorAll("summary")].find((summary) => summary.textContent === "What Pera and Ledger will sign");
+      if (signingSummary) signingSummary.textContent = "What your selected wallet will sign";
+      const signingCopy = signingSummary?.parentElement?.querySelector(".technical");
+      if (signingCopy) signingCopy.textContent = "Only the separate x402 USDC payment above. The pasted unsigned transaction group stays in this page and is never submitted to a wallet for signing or broadcast.";
+      const acknowledgementCopy = acknowledgement.parentElement?.querySelector("span");
+      if (acknowledgementCopy) acknowledgementCopy.textContent = "I understand this uses real MainNet USDC and I will verify the amount, USDC asset, and receiver in my selected wallet before approving.";
       peraButton.onclick = () => payForMainnetCataloging(peraButton, acknowledgement, "pera");
       const luteButton = document.createElement("button");
       luteButton.type = "button";
@@ -306,10 +312,19 @@
       luteButton.textContent = "Connect Lute on MainNet and approve $0.01 USDC";
       luteButton.onclick = () => payForMainnetCataloging(luteButton, acknowledgement, "lute");
       peraButton.after(luteButton);
+      const walletRoutes = document.createElement("details");
+      walletRoutes.className = "advanced-report";
+      const walletRoutesSummary = document.createElement("summary");
+      walletRoutesSummary.textContent = "Two supported Algorand wallet routes";
+      const walletRoutesCopy = document.createElement("div");
+      walletRoutesCopy.className = "helper";
+      walletRoutesCopy.innerHTML = "<p><strong>Pera Wallet:</strong> starts a fresh MainNet WalletConnect pairing; use the separate Pera account that holds MainNet USDC. A Pera-managed Ledger account may approve only if its own display matches the terms.</p><p><strong>Lute Wallet:</strong> opens Lute's MainNet browser-wallet connector; select a separate Lute account that holds MainNet USDC.</p><p>Both routes sign the same pinned payment: exact x402, Algorand MainNet, USDC ASA 31566704, 10,000 atomic units ($0.01), to the receiver displayed above. Do not use MicroVern's receiver account as the payer. MicroVern never receives a seed phrase or private key.</p>";
+      walletRoutes.append(walletRoutesSummary, walletRoutesCopy);
+      luteButton.after(walletRoutes);
       const note = document.createElement("p");
       note.className = "note";
       note.textContent = "Choose one wallet. Both routes sign the same pinned x402 payment only after you confirm the amount, USDC asset, and receiver.";
-      luteButton.after(note);
+      walletRoutes.after(note);
     };
   </script>
   <script>

@@ -1,6 +1,6 @@
 # MicroVern Global x402 Challenge submission package
 
-**Prepared:** 2026-09-28  
+**Prepared:** 2026-09-29
 **Entry type:** Standard — one paid endpoint that returns a transaction-inspection report.
 
 ## Project summary
@@ -38,8 +38,9 @@ The separate x402 payment is never the customer transaction under review.
 | MainNet health | https://microvern-x402-mainnet.onrender.com/healthz |
 | MainNet readiness | https://microvern-x402-mainnet.onrender.com/readyz |
 | MainNet paid endpoint | https://microvern-x402-mainnet.onrender.com/v1/inspect-transaction |
-| MainNet payment transaction | https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA |
-| GoPlausible payment receipt | https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA |
+| Earlier MainNet payment transaction | https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA |
+| Lute MainNet x402 payment transaction | https://allo.info/tx/J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA |
+| Lute GoPlausible receipt (valid for 90 days) | https://goplausible.xyz/api/receipt/efb0bd2c3d6e07e2975fe6e643d19dfc |
 | TestNet payment transaction | https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ |
 
 ## Verified qualification evidence
@@ -52,6 +53,21 @@ The separate x402 payment is never the customer transaction under review.
 - The route declares the `x402-global-challenge` discovery tag.
 - The repository contains a public human review demo, an OpenAPI contract,
   deterministic tests, an MCP interface, and agent-integration documentation.
+
+## Browser wallet routes
+
+The MainNet browser experience supports two alternative Algorand wallet routes:
+
+| Route | Required payer setup | Fixed payment boundary |
+| --- | --- | --- |
+| Pera Wallet | A separate MainNet Pera account, with MainNet USDC opt-in and balance; the page creates a fresh WalletConnect pairing. A Ledger-backed Pera account must show the same terms before approval. | `exact` x402; Algorand MainNet; USDC ASA `31566704`; `10,000` atomic units (`$0.01`); configured MicroVern receiver. |
+| Lute Wallet | A separate MainNet Lute browser-wallet account, with MainNet USDC opt-in and balance; the page uses Lute's connector. | The identical fixed payment boundary. |
+
+Neither route can use the MicroVern receiver as payer. Both sign only the
+separately disclosed x402 payment and never receive the pasted unsigned group,
+a seed phrase, or a private key. The Lute route has a settled MainNet payment
+recorded above. The Pera MainNet route is available but not claimed as
+production-payment tested.
 
 ## Required owner actions before submission
 

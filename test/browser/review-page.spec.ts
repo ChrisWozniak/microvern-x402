@@ -102,6 +102,10 @@ test("pinned MainNet quote presents Pera and Lute without initiating a payment",
   await expect(page.getByText("One-time MainNet Bazaar cataloging check")).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Pera on MainNet and approve $0.01 USDC" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Connect Lute on MainNet and approve $0.01 USDC" })).toBeVisible();
+  await page.locator("summary", { hasText: "Two supported Algorand wallet routes" }).click();
+  await expect(page.getByText("starts a fresh MainNet WalletConnect pairing")).toBeVisible();
+  await expect(page.getByText("opens Lute's MainNet browser-wallet connector")).toBeVisible();
+  await expect(page.getByText("Do not use MicroVern's receiver account as the payer.")).toBeVisible();
   const transactionId = "J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA";
   await page.evaluate((id) => {
     window.eval(`appendMainnetCatalogReceipt({ paymentTransactionId: ${JSON.stringify(id)}, bazaarDiscovery: { status: "not-reported" } })`);

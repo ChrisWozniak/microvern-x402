@@ -1,6 +1,6 @@
 # MicroVern hackathon submission evidence
 
-**Last read-only check:** 2026-09-28. This record captures public endpoints
+**Last read-only check:** 2026-09-29. This record captures public endpoints
 and already-settled payment evidence. No payment, signing, or broadcast was
 performed while collecting it.
 
@@ -31,6 +31,11 @@ rows above are their last successful 2026-09-27 checks: Render reported the
 Free-plan TestNet web service suspended on 2026-09-28 until the billing-cycle
 reset.
 
+On 2026-09-29, Render deployed the public MainNet service from commit
+`b26e1ee`. A read-only `OPTIONS` check from the GitHub Pages origin confirmed
+that `Extension-Responses` is exposed alongside the x402 response headers, so
+future browser payments can display a facilitator-provided Bazaar result.
+
 ## MainNet x402 quote: no payment made
 
 A read-only `POST` probe of the MainNet inspection endpoint returned HTTP
@@ -52,8 +57,23 @@ or obtain the paid report.
 
 | Network | Proof | Verified result |
 | --- | --- | --- |
-| MainNet | [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) · [GoPlausible receipt](https://facilitator.goplausible.xyz/api/receipt/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) | Both public links returned `200`; the receipt identifies a `$0.01` USDC x402 transfer. |
+| MainNet (earlier service payment) | [Allo transaction](https://allo.info/tx/W7TKPIJ374F47DVDXGHCPOTGGLXS74PM7YL4G3EZ4TSTXGNWQWRA) | Settled MainNet service-payment evidence. |
+| MainNet (Lute browser route) | [Allo transaction](https://allo.info/tx/J7DF5IZDIVP5BBCCF2DOU5TZEZH57NGHAOQVP26UDJQSXERFPVQA) · [GoPlausible receipt](https://goplausible.xyz/api/receipt/efb0bd2c3d6e07e2975fe6e643d19dfc) | The receipt shows a settled `$0.01` USDC x402 payment from the Lute-selected payer to MicroVern; GoPlausible states it is valid for 90 days. |
 | TestNet | [Lora transaction](https://lora.algokit.io/testnet/transaction/6GHS4RITOWH4KGZBPE2K2J4YG7W2GTW7SC7R6P735X3KSGG7YIKQ) | Public link returned `200`. |
+
+## Browser wallet routes
+
+The public MainNet review page presents Pera Wallet and Lute Wallet as two
+alternatives for the same pinned x402 payment. A payer chooses one wallet and
+uses a separate MainNet account that is opted into USDC ASA `31566704` and has
+the displayed balance. The browser verifies the exact scheme, network, asset,
+amount (`10,000` atomic USDC), receiver, origin, and fresh quote before either
+wallet is asked to sign. It never asks either wallet to sign or broadcast the
+unsigned transaction group under review.
+
+The Lute path has the settled MainNet evidence above. The Pera MainNet path is
+available for a separately authorized payment but is not represented as having
+completed this release's browser end-to-end settlement.
 
 ## Bazaar discovery status
 

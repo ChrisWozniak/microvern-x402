@@ -81,15 +81,29 @@ and request approval for exactly `10,000` atomic TestNet USDC (`$0.01`). The
 browser rejects a changed network, asset, amount, service origin, or fresh
 payment quote before Pera is asked to sign.
 
-It also has one deliberately narrow **MainNet Pera + Ledger Bazaar cataloging
-check** for the authorized operator. It appears only for the pinned MainNet
-service and an exact quote for `10,000` atomic USDC (`$0.01`), ASA `31566704`,
-and the pinned MicroVern receiver. The operator must acknowledge that real
-MainNet USDC is involved; the page starts a fresh MainNet Pera pairing and
-rejects changed terms before Ledger can sign. This is not a general MainNet
-browser-payment feature. In both paths, Pera signs only the separate x402
-payment transaction; the original unsigned group is never sent to the wallet
-for signing or broadcast.
+## Browser wallet routes
+
+The MainNet cataloging check has two non-custodial Algorand wallet routes.
+They are alternatives for the same deliberately narrow, pinned x402 payment;
+they are not general-purpose payment controls.
+
+| Wallet route | Connection and account requirements | What can be signed |
+| --- | --- | --- |
+| **Pera Wallet** | Starts a fresh MainNet WalletConnect pairing. Select a separate MainNet Pera account with ALGO for account requirements and MainNet USDC opt-in and balance. A Ledger-backed account must independently show the same terms. | The displayed separate x402 payment only. |
+| **Lute Wallet** | Uses Lute's MainNet browser-wallet connector. Select a separate MainNet Lute account with ALGO for account requirements and MainNet USDC opt-in and balance. | The displayed separate x402 payment only. |
+
+Before either route is enabled, the browser pins and displays: Algorand
+MainNet, `exact` x402, USDC ASA `31566704`, `10,000` atomic units (`$0.01`),
+and MicroVern's configured receiver. The payer must not be that receiver
+account. The user must acknowledge the real-USDC terms and compare every
+displayed value in their selected wallet before approving. The browser rejects
+a changed network, asset, amount, receiver, service origin, or stale quote.
+
+Both routes sign only the separate x402 payment transaction. MicroVern never
+receives a seed phrase or private key, and it never submits the pasted unsigned
+transaction group to Pera or Lute for signing or broadcast. The Lute MainNet
+route has completed a real settled x402 payment; Pera's MainNet route remains
+available but has not been used for a production payment in this release.
 
 The paid MainNet service is live at
 [`https://microvern-x402-mainnet.onrender.com`](https://microvern-x402-mainnet.onrender.com).
