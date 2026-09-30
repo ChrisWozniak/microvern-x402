@@ -1,14 +1,14 @@
 # MicroVern hackathon submission evidence
 
-**Last read-only check:** 2026-09-29. This record captures public endpoints
+**Last read-only check:** 2026-09-30. This record captures public endpoints
 and already-settled payment evidence. No payment, signing, or broadcast was
 performed while collecting it.
 
 **Submission readiness:** the public demo, repository, MainNet endpoint,
-no-spend MainNet quote, and settled payment proofs are recorded below. Bazaar
-catalog indexing remains an external pending item and is not represented as
-complete. The free TestNet service is temporarily suspended by Render until
-its next billing-cycle reset; this does not affect the public MainNet evidence.
+no-spend MainNet quote, settled payment proofs, and confirmed MainNet Bazaar
+resource and merchant records are recorded below. The free TestNet service is
+temporarily suspended by Render until its next billing-cycle reset; this does
+not affect the public MainNet evidence.
 
 For a concise owner-facing summary and public-link packet, see the
 [submission package](hackathon_submission_package.md).
@@ -77,31 +77,21 @@ completed this release's browser end-to-end settlement.
 
 ## Bazaar discovery status
 
-MicroVern advertises the Bazaar extension and `x402-global-challenge` tag in
-its protected-route metadata. Read-only catalog checks found:
+MicroVern is **confirmed listed** in GoPlausible's public Bazaar catalog. On
+2026-09-30, read-only direct-record checks returned `200` for both:
 
-- On 2026-09-28, the MainNet receiver
-  `GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE`
-  again returned **0 resources** from the public Bazaar merchant-ID query;
-  the MainNet resource search for `microvern` also returned **0 results**.
-  The direct merchant lookup returned `404`, while the MainNet merchant-name
-  search returned a facilitator-side `500` error.
-- On 2026-09-27, the MainNet receiver
-  `GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE`
-  returned **0 resources** from the public Bazaar merchant-ID query.
-- On 2026-09-26, MainNet and TestNet Bazaar searches for `microvern` each
-  returned **0 results**.
-- The 2026-09-26 exact-URL search returned the facilitator's current `500`
-  error: `LIKE or GLOB pattern too complex`.
+- [the MainNet resource record](https://facilitator.goplausible.xyz/discovery/resources/UE9TVDpodHRwczovL21pY3JvdmVybi14NDAyLW1haW5uZXQub25yZW5kZXIuY29tL3YxL2luc3BlY3QtdHJhbnNhY3Rpb24), for `POST https://microvern-x402-mainnet.onrender.com/v1/inspect-transaction`; and
+- [the merchant record](https://facilitator.goplausible.xyz/discovery/merchants/GOXRKDEGYKJTNAJSPFAVUQQHHWMKBI7IW5PJ6G65X32OCYBMN6WYNNOPGE), for the configured MainNet receiver.
 
-Therefore Bazaar catalog indexing is **not claimed as complete**. The public
-endpoint, payment quote, settled proof, receipt, and demo remain available for
-submission review. On 2026-09-28, the project owner sent a time-sensitive
-support request to GoPlausible at `info@goplausible.com` asking them to review
-MicroVern's missing MainNet Bazaar listing before the hackathon deadline. A
-response is still pending. Recheck the catalog before final submission; if a
-resource appears, add its exact Bazaar URL and discovery metadata to this
-record.
+The resource record confirms `exact` x402 on Algorand MainNet, USDC ASA
+`31566704`, `10,000` atomic units (`$0.01`), the configured receiver, and the
+`x402-global-challenge` tag. It reports one merchant resource and
+`settleCount: 2`, first seen on 2026-09-29.
+
+The facilitator's free-text merchant and exact-URL search endpoints still
+returned `500` with `LIKE or GLOB pattern too complex` during the same check.
+That catalog-search defect does not affect the confirmed direct resource and
+merchant records above.
 
 ## Non-custodial security boundary
 
